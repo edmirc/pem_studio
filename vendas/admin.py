@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Precificacao, Feiras, VendasFeiras
+from vendas.models import Precificacao, Feiras, VendasFeiras, VendasInternas
 from django.db.models import Sum
 
 @admin.register(Precificacao)
@@ -21,3 +21,10 @@ class VendasFeirasAdmin(admin.ModelAdmin):
     list_filter = ('feira__date', )
     search_fields = ('feira__date',)
     readonly_fields = ('total_debito', 'total_credito', 'total_pix', 'total_dinheiro', 'total_total',)
+ 
+@admin.register(VendasInternas)
+class VendasFeirasAdmin(admin.ModelAdmin):
+    list_display = ('id', 'date', 'product', 'valor', 'client', 'pagment')
+    list_filter = ('date', 'product__product' )
+    search_fields = ('date', 'product__product')
+    

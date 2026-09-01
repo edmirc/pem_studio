@@ -79,7 +79,7 @@ class CadFeiras(models.Model):
         verbose_name_plural = 'Cadastro de feiras'
         ordering = ('name', )
 
-class CadClientes(models.Moel):
+class CadClientes(models.Model):
     id = models.BigAutoField(primary_key=True, verbose_name='ID')
     name = models.CharField(max_length=250, verbose_name='Nome', unique=True)
     cpf = models.CharField(max_length=20, verbose_name='CPF', unique=True, null=True, blank=True)
