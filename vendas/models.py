@@ -105,6 +105,13 @@ class VendasInternas(models.Model):
     valor = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='Valor')
     client = models.ForeignKey(CadClientes, on_delete=models.CASCADE, verbose_name="Cliente")
     pagment = models.CharField(max_length=50, choices=FormaPagamento, verbose_name='Formas de pagamento')
-        
+
+    def __str__(self):
+        return self.product.product
+
+    class Meta:
+        verbose_name = "Vendas Internas"
+        verbose_name_plural = "Vendas Internas"
+        ordering = ('date', 'product')
 
     
