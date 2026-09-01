@@ -35,8 +35,9 @@ class Precificacao(models.Model):
 class FormaPagamento(models.TextChoices):
     CREDITO = 'CREDITO', 'Crédito'
     DEBITO = 'DEBITO', 'Débito'
-    PIX = 'PIX', 'Pix'
     DINHEIRO = 'DINHEIRO', 'Dinheiro'
+    PIX = 'PIX', 'Pix'
+    
 
 class Feiras(models.Model):
     id = models.BigAutoField(primary_key=True, verbose_name="ID")
@@ -97,3 +98,13 @@ class VendasFeiras(models.Model):
     )
 
 
+    class VendasInternas(models.Model):
+        id = models.BigAutoField(primary_key=True, verbose_name="ID")
+        date = models.DateField(verbose_name='Data')
+        product = models.ForeignKey(Product, on_delete=models.CASCADE, verbose_name='Produto')
+        valor = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='Valor')
+        client = models.ForeignKey()
+        pagment = models.CharField(max_length=50, choices=FormaPagamento, verbose_name='Formas de pagamento')
+        
+
+    

@@ -78,3 +78,22 @@ class CadFeiras(models.Model):
         verbose_name = 'Cadasro de feiras'
         verbose_name_plural = 'Cadastro de feiras'
         ordering = ('name', )
+
+class CadClientes(models.Moel):
+    id = models.BigAutoField(primary_key=True, verbose_name='ID')
+    name = models.CharField(max_length=250, verbose_name='Nome', unique=True)
+    cpf = models.CharField(max_length=20, verbose_name='CPF', unique=True, null=True, blank=True)
+    telefone = models.CharField(max_length=15, verbose_name='Telefone', unique=True)
+    endereco = models.CharField(max_length=300, verbose_name="Endereço", null=True, blank=True)
+
+    def __str__(self):
+        return self.name
+
+    def save(self, *args, **kwargs):
+        self.name = self.name.title()
+        return super().save(*args, **kwargs)
+
+    class Meta:
+        verbose_name = "Cadastro de Cliente"
+        verbose_name_plural = ("Cadastro de clientes")
+        ordering = ('name',)
