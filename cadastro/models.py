@@ -97,3 +97,26 @@ class CadClientes(models.Model):
         verbose_name = "Cadastro de Cliente"
         verbose_name_plural = ("Cadastro de clientes")
         ordering = ('name',)
+
+class OperacaoFinaceira(models.TextChoices):
+    CREDITO = 'CREDITO', 'Crédito'
+    DEBITO = 'DEBITO', 'Débito'
+    PIX = 'PIX', 'PIX'
+    SAQUE = 'SAQUE', 'Saque'
+
+
+class Contas(models.Model):
+    id = models.BigAutoField(primary_key=True, verbose_name="ID")
+    banco = models.CharField(max_length=200, verbose_name="Cartão")
+    name = models.CharField(max_length=200, verbose_name='Nome do titular')
+    operacao = models.CharField(max_length=50, choices= OperacaoFinaceira, verbose_name='Operação')
+    apelido = models.CharField(max_length=200, verbose_name='Nome do Cartão')
+
+    def __str__(self):
+        return self.apelido
+
+    class Meta:
+        verbose_name = 'Contas Bancarias'
+        verbose_name_plural = 'Contas Bancarias'
+        odering = ('apelido',)
+
