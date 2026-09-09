@@ -1,5 +1,5 @@
 from django.db import models
-from cadastro import Contas
+from cadastro.models import Contas
 
 class Compras(models.Model):
     id = models.BigAutoField(primary_key=True, verbose_name='ID')
@@ -11,9 +11,11 @@ class Compras(models.Model):
  
 
     class Meta:
-        verbose_name = _("")
-        verbose_name_plural = _("s")
+        verbose_name = 'Saída'
+        verbose_name_plural = "Saídas"
+        ordering = ('date',)
 
+        
     def __str__(self):
         return self.saida
 

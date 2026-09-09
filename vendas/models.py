@@ -51,8 +51,8 @@ class Feiras(models.Model):
         return str(self.nomeFeira)
 
     def save(self, *args, **kwargs):
-        if self.pagment == "DEBITO":
-            self.value = self.value - (self.value * Decimal("0.0089"))
+        #if self.pagment == "DEBITO":
+            #self.value = self.value - (self.value * Decimal("0.0089"))
         return super().save(*args, **kwargs)
             
 
@@ -68,7 +68,7 @@ class Feiras(models.Model):
     class Meta:
         verbose_name = "Venda de feiras" 
         verbose_name_plural = "Venda de Feiras"
-        ordering = ('nomeFeira', 'product')
+        ordering = ('nomeFeira', 'id')
 
 
 class VendasFeiras(models.Model):
@@ -94,8 +94,7 @@ class VendasFeiras(models.Model):
     class Meta:
         verbose_name="Total de Vendas Feiras"
         verbose_name_plural="Total de Vendas Feiras"
-        ordering = ('feira',
-    )
+        ordering = ('-feira',)
 
 
 class VendasInternas(models.Model):
@@ -112,6 +111,6 @@ class VendasInternas(models.Model):
     class Meta:
         verbose_name = "Vendas Internas"
         verbose_name_plural = "Vendas Internas"
-        ordering = ('date', 'product')
+        ordering = ('-date', 'product')
 
     

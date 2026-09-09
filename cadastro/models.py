@@ -72,12 +72,12 @@ class CadFeiras(models.Model):
     local = models.CharField(max_length=200, verbose_name="Local")
 
     def __str__(self):
-        return str(self.date)
+        return f'{str(self.date)}, {self.name}'
 
     class Meta:
         verbose_name = 'Cadasro de feiras'
         verbose_name_plural = 'Cadastro de feiras'
-        ordering = ('name', )
+        ordering = ('-id',)
 
 class CadClientes(models.Model):
     id = models.BigAutoField(primary_key=True, verbose_name='ID')
@@ -118,5 +118,5 @@ class Contas(models.Model):
     class Meta:
         verbose_name = 'Contas Bancarias'
         verbose_name_plural = 'Contas Bancarias'
-        odering = ('apelido',)
+        ordering = ('apelido',)
 

@@ -12,7 +12,7 @@ class PrecificacaoAdmin(admin.ModelAdmin):
 @admin.register(Feiras)
 class FeirasAdmin(admin.ModelAdmin):
     list_display = ('id', 'nomeFeira', 'product', 'qnt', 'value', 'pagment')
-    list_filter = ('nomeFeira__date', 'pagment')
+    list_filter = ('nomeFeira__name','nomeFeira__date','product' ,'pagment')
     search_fields = ('product__name', 'nomeFeira__name') # Ajuste os campos de texto conforme os models externos se necessário
 
 @admin.register(VendasFeiras)

@@ -76,8 +76,8 @@ class Banco:
             dados.append(dado)
         return dados
 
-    
     def precificar(self, rows: list):
+    
         text = "INSERT INTO vendas_precificacao (product_id, impressao, filament, embalagem, acessorios, custo, sugerido, vanda) values ("
         sql_l = []
         lista = self.dadosPrecificacao(rows)
@@ -97,5 +97,13 @@ class Banco:
         cont = self.insert(sql_l)
         print(cont)
         self.conn.close
-    
+
+    def get_dados(self, table: str) -> list :
+        sql = F"SELECT * FROM {table};"
+        self.cursor.execute(sql)
+        dados = []
+        for i in self.cursor.fetchall():
+            dados.append(i)
+        self.conn.close()
+        return dados
         
