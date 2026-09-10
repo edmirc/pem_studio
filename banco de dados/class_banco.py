@@ -3,8 +3,16 @@ from decimal import Decimal
 
 class Banco:
     def __init__(self):
-        self.conn = sqlite3.connect('C:\\projetos\\pem studio\\db.sqlite3')
+        self.conn = self.get_connection()
         self.cursor = self.conn.cursor()
+
+    def get_connection(self):
+        con = None
+        try:
+            con = sqlite3.connect('C:\\projetos\\pem studio\\db.sqlite3')
+        except:
+            con = sqlite3.connect('C:\\Projetos\\pem_studio\\db.sqlite3')
+        return con
 
     def insert(self, sql: list):
             cont = 0
