@@ -100,6 +100,7 @@ class VendasFeiras(models.Model):
 class VendasInternas(models.Model):
     id = models.BigAutoField(primary_key=True, verbose_name="ID")
     date = models.DateField(verbose_name='Data')
+    qnt = models.IntegerField(verbose_name="Quantidade", null=True, blank=True)
     product = models.ForeignKey(Product, on_delete=models.CASCADE, verbose_name='Produto')
     valor = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='Valor')
     client = models.ForeignKey(CadClientes, on_delete=models.CASCADE, verbose_name="Cliente")
