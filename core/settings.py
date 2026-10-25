@@ -27,10 +27,12 @@ SECRET_KEY = 'django-insecure-1jm28i_$y&^&k94uynuy$7f!lj@+am(uu#*joc6ygksa8dh%3i
 DEBUG = True
 
 #ALLOWED_HOSTS = []
-ALLOWED_HOSTS = ["192.168.3.191", "127.0.0.1", "localhost"]
+ALLOWED_HOSTS = ["192.168.3.191", "127.0.0.1", "localhost", "100.116.208.105"]
 CSRF_TRUSTED_ORIGINS = [
     'http://192.168.3.191:81',
     'http://192.168.3.191',
+    'http://100.116.208.105:81',
+    'http://S100.116.208.105',
 ]
 
 
@@ -88,7 +90,7 @@ DATABASES = {
         'NAME': 'pem_studio',
         'USER': 'remoto',
         'PASSWORD': '@Ede025978',
-        'HOST': '192.168.3.191',
+        'HOST': '192.168.3.190',
         'PORT': '3306',
     }
 }

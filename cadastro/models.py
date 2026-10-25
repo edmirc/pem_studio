@@ -83,6 +83,7 @@ class CadClientes(models.Model):
     id = models.BigAutoField(primary_key=True, verbose_name='ID')
     name = models.CharField(max_length=250, verbose_name='Nome', unique=True)
     cpf = models.CharField(max_length=20, verbose_name='CPF', unique=True, null=True, blank=True)
+    date_nasc = models.DateField(verbose_name="Data de Nascimento", null=True, blank=True)
     telefone = models.CharField(max_length=15, verbose_name='Telefone', unique=True)
     endereco = models.CharField(max_length=300, verbose_name="Endereço", null=True, blank=True)
 

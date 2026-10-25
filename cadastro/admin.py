@@ -48,5 +48,5 @@ class CadFeirasAdmin(admin.ModelAdmin):
 
 @admin.register(CadClientes)
 class CadClientesAdmin(admin.ModelAdmin):
-    list_display = ("id", "name", "cpf", "telefone", "endereco")
+    list_display = ("id", "name", "cpf", "date_nasc","telefone", "endereco")
     search_fields = ("name",)
