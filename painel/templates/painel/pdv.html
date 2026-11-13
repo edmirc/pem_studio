@@ -1,0 +1,129 @@
+{% extends 'painel/base.html' %}
+{% load painel_tags %}
+{% block titulo %}{{ feira.name }}{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <div>
+    <p class="migalha"><a href="{% url 'painel:pdv_escolher' %}?escolher=1">Trocar feira</a></p>
+    <h1>{{ feira.name }}</h1>
+    <p class="sub">{{ feira.date|date:"d/m/Y" }} · {{ feira.local }}</p>
+  </div>
+  <div class="acoes">
+    <a class="botao" href="{% url 'painel:fechamento_feira' feira.pk %}">Fechamento</a>
+  </div>
+</div>
+
+<div class="pdv">
+  <section class="pdv-produtos">
+    <div class="pdv-busca">
+      <input class="campo" type="search" id="busca-produto" placeholder="Buscar produto…" autocomplete="off">
+      <div class="chips" id="chips">
+        <button type="button" class="chip ativo" data-cat="">Todos</button>
+        {% for c in categorias %}<button type="button" class="chip" data-cat="{{ c.pk }}">{{ c.category }}</button>{% endfor %}
+      </div>
+    </div>
+    <div class="grade-produtos" id="grade-produtos">
+      {% for item in produtos %}
+        <button type="button" class="produto" data-id="{{ item.p.pk }}" data-nome="{{ item.p.product|lower }}"
+                data-cat="{{ item.p.category_id }}" data-preco="{% if item.preco %}{{ item.preco|stringformat:'s' }}{% endif %}">
+          <span class="nome">{{ item.p.product }}</span>
+          <span class="preco">{% if item.preco %}{{ item.preco|brl }}{% else %}sem preço{% endif %}</span>
+        </button>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="pdv-lateral">
+    {% include 'painel/parciais/pdv_vendas.html' %}
+  </section>
+</div>
+
+<dialog id="janela-venda" class="janela">
+  <form hx-post="{% url 'painel:pdv_adicionar' feira.pk %}" hx-target="#vendas" hx-swap="outerHTML" id="form-venda">
+    <input type="hidden" name="produto" id="v-produto">
+    <div class="janela-topo">
+      <h2 id="v-nome">Produto</h2>
+      <button type="button" class="botao icone" onclick="fecharVenda()" aria-label="Fechar">×</button>
+    </div>
+    <label class="rotulo">Quantidade</label>
+    <div class="contador">
+      <button type="button" class="botao icone grande" onclick="mudarQnt(-1)">−</button>
+      <input class="campo" type="number" name="qnt" id="v-qnt" value="1" min="1" inputmode="numeric">
+      <button type="button" class="botao icone grande" onclick="mudarQnt(1)">+</button>
+    </div>
+    <label class="rotulo" for="v-preco">Preço unitário (R$)</label>
+    <input class="campo valor-grande" type="number" step="0.01" min="0" name="preco" id="v-preco" inputmode="decimal" required>
+    <div class="total-venda"><span>Total</span><strong id="v-total">R$ 0,00</strong></div>
+    <label class="rotulo">Forma de pagamento — toque para registrar</label>
+    <div class="pagamentos">
+      {% for k, nome in formas %}
+        <button type="submit" name="pagamento" value="{{ k }}" class="botao pag pag-{{ k|lower }}">{{ nome }}</button>
+      {% endfor %}
+    </div>
+  </form>
+</dialog>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const janela = document.getElementById('janela-venda');
+  const qnt = document.getElementById('v-qnt');
+  const preco = document.getElementById('v-preco');
+  const total = document.getElementById('v-total');
+  const brl = x => x.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+  function quantidade() { return Math.max(1, parseInt(qnt.value, 10) || 1); }
+  function atualizarTotal() {
+    const p = parseFloat(String(preco.value).replace(',', '.')) || 0;
+    total.textContent = brl(Math.round(p * quantidade() * 100) / 100);
+  }
+
+  document.getElementById('grade-produtos').addEventListener('click', e => {
+    const b = e.target.closest('.produto');
+    if (!b) return;
+    document.getElementById('v-produto').value = b.dataset.id;
+    document.getElementById('v-nome').textContent = b.querySelector('.nome').textContent;
+    const p = parseFloat(b.dataset.preco) || 0;
+    qnt.value = 1;
+    preco.value = p ? p.toFixed(2) : '';
+    atualizarTotal();
+    janela.showModal();
+    if (!p) preco.focus();
+  });
+
+  window.mudarQnt = d => { qnt.value = Math.max(1, quantidade() + d); atualizarTotal(); };
+  qnt.addEventListener('input', atualizarTotal);
+  preco.addEventListener('input', atualizarTotal);
+  window.fecharVenda = () => janela.close();
+
+  document.getElementById('form-venda').addEventListener('htmx:beforeRequest', e => {
+    if (!preco.value) { e.preventDefault(); preco.focus(); }
+  });
+  document.body.addEventListener('htmx:afterRequest', e => {
+    if (e.detail.elt.id === 'form-venda' && e.detail.successful) {
+      janela.close();
+      document.getElementById('busca-produto').value = '';
+      filtrar();
+    }
+  });
+
+  // busca e filtro por categoria
+  const busca = document.getElementById('busca-produto');
+  let cat = '';
+  function filtrar() {
+    const t = busca.value.trim().toLowerCase();
+    document.querySelectorAll('.produto').forEach(p => {
+      const ok = (!t || p.dataset.nome.includes(t)) && (!cat || p.dataset.cat === cat);
+      p.hidden = !ok;
+    });
+  }
+  busca.addEventListener('input', filtrar);
+  document.getElementById('chips').addEventListener('click', e => {
+    const c = e.target.closest('.chip'); if (!c) return;
+    document.querySelectorAll('.chip').forEach(x => x.classList.remove('ativo'));
+    c.classList.add('ativo'); cat = c.dataset.cat; filtrar();
+  });
+})();
+</script>
+{% endblock %}

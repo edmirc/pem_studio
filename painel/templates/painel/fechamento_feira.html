@@ -1,0 +1,37 @@
+{% extends 'painel/base.html' %}
+{% load painel_tags %}
+{% block titulo %}Fechamento · {{ feira.name }}{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <div>
+    <p class="migalha"><a href="{% url 'painel:pdv' feira.pk %}">Voltar para a venda</a></p>
+    <h1>Fechamento: {{ feira.name }}</h1>
+    <p class="sub">{{ feira.date|date:"d/m/Y" }} · {{ feira.local }}</p>
+  </div>
+  <div class="acoes nao-imprimir"><button class="botao primario" onclick="window.print()">Imprimir / PDF</button></div>
+</div>
+
+<div class="kpis">
+  <div class="cartao kpi"><span>Faturamento</span><strong>{{ total_geral|brl }}</strong></div>
+  <div class="cartao kpi"><span>Itens vendidos</span><strong>{{ itens }}</strong></div>
+  <div class="cartao kpi"><span>Custo estimado</span><strong>{{ custo_total|brl }}</strong></div>
+  <div class="cartao kpi"><span>Lucro bruto estimado</span><strong>{{ lucro|brl }}</strong></div>
+</div>
+
+<div class="duas-colunas">
+  <div class="cartao">
+    <h3 class="titulo-cartao">Por forma de pagamento</h3>
+    <table class="tabela">
+      {% for t in totais %}<tr><td>{{ t.nome }}</td><td class="num">{{ t.total|brl }}</td><td class="num muted">{{ t.total|pct:total_geral }}%</td></tr>{% endfor %}
+      <tr class="total"><td>Total</td><td class="num">{{ total_geral|brl }}</td><td></td></tr>
+    </table>
+  </div>
+  <div class="cartao">
+    <h3 class="titulo-cartao">Por produto</h3>
+    <table class="tabela">
+      <thead><tr><th>Produto</th><th class="num">Qtd.</th><th class="num">Total</th></tr></thead>
+      {% for p in produtos %}<tr><td>{{ p.produto }}</td><td class="num">{{ p.qnt }}</td><td class="num">{{ p.total|brl }}</td></tr>{% endfor %}
+    </table>
+  </div>
+</div>
+{% endblock %}

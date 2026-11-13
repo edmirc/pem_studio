@@ -1,0 +1,36 @@
+{% extends 'painel/base.html' %}
+{% load painel_tags %}
+{% block titulo %}Configurações{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <div><p class="migalha">Encomendas</p><h1>Configurações</h1></div>
+  <div class="acoes"><a class="botao" href="{% url 'encomendas:calculadora' %}">Abrir calculadora</a></div>
+</div>
+
+<div class="cartao">
+  <div class="cabecalho-cartao"><h3 class="titulo-cartao">Impressoras</h3>
+    <a class="botao pequeno" href="{% url 'encomendas:impressora_nova' %}">+ Impressora</a></div>
+  <table class="tabela">
+    <thead><tr><th>Nome</th><th>Modelo</th><th class="num">Consumo médio</th><th class="num">Energia/h</th><th class="num">Custo/h usado</th><th></th></tr></thead>
+    {% for i in impressoras %}
+      <tr class="{% if not i.ativa %}muted{% endif %}"><td>{{ i.nome }}{% if not i.ativa %} (inativa){% endif %}</td><td>{{ i.modelo }}</td>
+        <td class="num">{{ i.potencia_media_w }} W</td><td class="num">{{ i.energia|brl }}</td><td class="num"><b>{{ i.custo_hora|brl }}</b></td>
+        <td class="acoes-linha"><a href="{% url 'encomendas:impressora_editar' i.pk %}">Editar</a></td></tr>
+    {% endfor %}
+  </table>
+  <p class="dica">O <b>custo por hora</b> é o que entra no preço (energia + desgaste da máquina). A coluna "Energia/h" é só a parte da conta de luz, calculada com o consumo médio e o preço do kWh, para você ver quanto sobra para desgaste e manutenção.
+  Os consumos iniciais são estimativas de impressão em PLA (A1: 95 W, dado da Bambu); se tiver uma tomada medidora, ajuste.</p>
+</div>
+
+<form method="post" class="cartao formulario largo" novalidate>
+  {% csrf_token %}
+  {% for g in grupos %}
+  <h3 class="titulo-cartao {% if not forloop.first %}espaco{% endif %}">{{ g.titulo }}</h3>
+  {% if g.dica %}<p class="dica" style="margin-top:0">{{ g.dica }}</p>{% endif %}
+  <div class="grade-campos">{% for campo in g.campos %}{% include 'encomendas/parciais/campo.html' %}{% endfor %}</div>
+  {% endfor %}
+  <p class="dica">Exemplo para receber R$ 100,00 líquidos:
+    {% for c in exemplo %}{% if not forloop.first %}{{ c.nome }} {{ c.total|brl }}{% if not forloop.last %} · {% endif %}{% endif %}{% endfor %}</p>
+  <div class="barra-botoes"><button class="botao primario" type="submit">Salvar configurações</button></div>
+</form>
+{% endblock %}

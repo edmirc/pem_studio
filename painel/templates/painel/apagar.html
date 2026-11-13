@@ -1,0 +1,29 @@
+{% extends 'painel/base.html' %}
+{% block titulo %}Apagar {{ cfg.singular }}{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <div>
+    <p class="migalha"><a href="{% url 'painel:lista' cfg.slug %}">{{ cfg.titulo }}</a></p>
+    <h1>Apagar {{ cfg.singular }}</h1>
+  </div>
+</div>
+<div class="cartao formulario estreito">
+  {% if bloqueado %}
+    <div class="aviso error">{{ bloqueado }}</div>
+    <div class="barra-botoes"><a class="botao" href="{% url 'painel:lista' cfg.slug %}">Voltar</a></div>
+  {% else %}
+    <p>Tem certeza que deseja apagar <strong>{{ obj }}</strong>?</p>
+    {% if relacionados %}
+      <div class="aviso warning">
+        <strong>Atenção:</strong> isso também vai apagar {{ relacionados|join:", " }} ligados a este registro.
+      </div>
+    {% endif %}
+    <form method="post" class="barra-botoes">
+      {% csrf_token %}
+      <input type="hidden" name="proximo" value="{{ proximo }}">
+      <a class="botao" href="{% url 'painel:lista' cfg.slug %}">Cancelar</a>
+      <button class="botao perigo" type="submit">Sim, apagar</button>
+    </form>
+  {% endif %}
+</div>
+{% endblock %}

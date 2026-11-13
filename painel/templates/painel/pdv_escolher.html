@@ -1,0 +1,23 @@
+{% extends 'painel/base.html' %}
+{% load painel_tags %}
+{% block titulo %}Vender na feira{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <div><p class="migalha">Vendas</p><h1>Vender na feira</h1></div>
+  <div class="acoes">
+    <a class="botao primario" href="{% url 'painel:novo' 'feiras' %}?proximo={% url 'painel:pdv_escolher' %}">+ Cadastrar feira</a>
+  </div>
+</div>
+<p class="dica">Escolha a feira. Quando existir uma feira cadastrada com a data de hoje, ela abre direto.</p>
+<div class="lista-feiras">
+  {% for f in feiras %}
+    <a class="cartao feira-item {% if f.date == hoje %}hoje{% endif %}" href="{% url 'painel:pdv' f.pk %}">
+      <span class="data">{{ f.date|date:"d/m/Y" }}{% if f.date == hoje %} · hoje{% endif %}</span>
+      <strong>{{ f.name }}</strong>
+      <span class="local">{{ f.local }}</span>
+    </a>
+  {% empty %}
+    <div class="cartao vazio">Nenhuma feira cadastrada ainda.</div>
+  {% endfor %}
+</div>
+{% endblock %}

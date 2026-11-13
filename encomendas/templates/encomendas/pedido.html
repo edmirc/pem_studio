@@ -1,0 +1,94 @@
+{% extends 'painel/base.html' %}
+{% load painel_tags %}
+{% block titulo %}Pedido {{ p.numero }}{% include 'encomendas/parciais/visualizador.html' %}
+{% endblock %}
+{% block scripts %}{% load static %}<script src="{% static 'painel/js/anexos.js' %}"></script>{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <div>
+    <p class="migalha"><a href="{% url 'encomendas:pedidos' %}">Pedidos</a></p>
+    <h1>{{ p.numero }} · {{ p.cliente }}</h1>
+    <p class="sub">{{ p.cliente.telefone }} · pedido em {{ p.data|date:"d/m/Y" }}{% if p.orcamento %} · <a href="{% url 'encomendas:orcamento' p.orcamento.pk %}">{{ p.orcamento.numero }}</a>{% endif %}</p>
+  </div>
+  <div class="acoes">
+    {% if not p.vendas_geradas %}<a class="botao" href="{% url 'encomendas:pedido_editar' p.pk %}">Editar</a>{% endif %}
+    <a class="botao" href="{% url 'painel:cliente' p.cliente.pk %}">Ficha do cliente</a>
+  </div>
+</div>
+
+{% if p.status == 'CANCELADO' %}
+  <div class="aviso warning">Pedido cancelado.
+    <form method="post" action="{% url 'encomendas:pedido_acao' p.pk 'reativar' %}" style="display:inline">{% csrf_token %}<button class="link" type="submit">Reativar</button></form></div>
+{% elif p.status == 'ENTREGUE' %}
+  <div class="aviso">Entregue em {{ p.entregue_em|date:"d/m/Y" }} · restante pago em {{ p.get_forma_final_display }}. A venda já está em Vendas diretas e nos relatórios.</div>
+{% else %}
+  <div class="etapas">
+    {% for e in etapas %}
+      <form method="post" action="{% url 'encomendas:pedido_acao' p.pk 'etapa' %}">{% csrf_token %}
+        <input type="hidden" name="status" value="{{ e.s }}">
+        <button type="submit" class="etapa {% if e.feito %}feito{% endif %} {% if e.s == p.status %}atual{% endif %}">{{ e.nome }}</button>
+      </form>
+    {% endfor %}
+  </div>
+{% endif %}
+
+<div class="kpis">
+  <div class="cartao kpi"><span>Total</span><strong>{{ p.total|brl }}</strong></div>
+  <div class="cartao kpi"><span>Sinal recebido</span><strong>{{ p.sinal_recebido|brl }}</strong>
+    <small class="muted">{% if p.sinal_recebido %}{{ p.get_sinal_forma_display }} · {{ p.sinal_data|date:"d/m" }}{% else %}combinado {{ p.sinal_combinado|brl }}{% endif %}</small></div>
+  <div class="cartao kpi"><span>Falta receber</span><strong>{{ p.falta_receber|brl }}</strong></div>
+  <div class="cartao kpi"><span>Entregar até</span><strong class="menor {% if p.atrasado %}negativo{% endif %}">{{ p.prazo|date:"d/m/Y" }}</strong>
+    <small class="{% if p.atrasado %}negativo{% else %}muted{% endif %}">{% if p.status == 'ENTREGUE' or p.status == 'CANCELADO' %}—{% elif p.atrasado %}{{ p.dias_atraso }} dia{{ p.dias_atraso|pluralize }} de atraso{% elif p.dias_para_prazo == 0 %}hoje{% else %}em {{ p.dias_para_prazo }} dia{{ p.dias_para_prazo|pluralize }}{% endif %}</small></div>
+</div>
+
+{% include 'encomendas/parciais/referencias.html' with sol=p.orcamento.solicitacao %}
+<div class="duas-colunas largura-2-1">
+  <div class="cartao">
+    <h3 class="titulo-cartao">Itens</h3>
+    <table class="tabela">
+      <thead><tr><th>Item</th><th class="num">Qtd.</th><th class="num">Unitário</th><th class="num">Total</th></tr></thead>
+      {% for i in itens %}
+        <tr><td>{{ i.nome }}{% if i.calculo %}<small class="muted calc-resumo">{% if i.calculo.impressora %}{{ i.calculo.impressora }} · {% endif %}{% if i.calculo.horas or i.calculo.minutos %}{{ i.calculo.horas|default:0 }}h{{ i.calculo.minutos|default:"" }} · {% endif %}{% if i.calculo.gramas %}{{ i.calculo.gramas }} g · {% endif %}custo {{ i.calculo.custo_peca|brl }}/peça{% if i.calculo.pecas > 1 %} (mesa com {{ i.calculo.pecas }}){% endif %}</small>{% endif %}</td>
+          <td class="num">{{ i.qnt }}</td><td class="num">{{ i.preco_unitario|brl }}</td><td class="num">{{ i.total|brl }}</td></tr>
+      {% endfor %}
+      {% if p.desconto %}<tr><td colspan="3">Desconto</td><td class="num">- {{ p.desconto|brl }}</td></tr>{% endif %}
+      {% if p.frete %}<tr><td colspan="3">Entrega</td><td class="num">{{ p.frete|brl }}</td></tr>{% endif %}
+      <tr class="total"><td colspan="3">Total</td><td class="num">{{ p.total|brl }}</td></tr>
+    </table>
+    {% if p.observacoes %}<p class="dica">{{ p.observacoes|linebreaksbr }}</p>{% endif %}
+  </div>
+
+  <div>
+    {% if not p.vendas_geradas and p.status != 'CANCELADO' %}
+    <div class="cartao">
+      <h3 class="titulo-cartao">{% if p.sinal_recebido %}Corrigir sinal{% else %}Registrar sinal{% endif %}</h3>
+      <form method="post" action="{% url 'encomendas:pedido_acao' p.pk 'sinal' %}" class="form-compacto">{% csrf_token %}
+        <input class="campo" type="number" step="0.01" min="0" name="valor" value="{% if p.sinal_recebido %}{{ p.sinal_recebido|stringformat:'s' }}{% else %}{{ p.sinal_combinado|stringformat:'s' }}{% endif %}" inputmode="decimal">
+        <select class="campo" name="forma" required>
+          <option value="">Forma…</option>
+          {% for k, n in formas %}<option value="{{ k }}" {% if k == p.sinal_forma %}selected{% endif %}>{{ n }}</option>{% endfor %}
+        </select>
+        <button class="botao" type="submit">Salvar sinal</button>
+      </form>
+    </div>
+
+    <div class="cartao destaque-entrega" id="entregar">
+      <h3 class="titulo-cartao">Entregar e receber o restante</h3>
+      <p>Falta receber <b>{{ p.falta_receber|brl }}</b>{% if p.falta_receber %} · no cartão em 6x: {{ cartao.7.parcela|brl }}/mês ({{ cartao.7.total|brl }}){% endif %}.</p>
+      <form method="post" action="{% url 'encomendas:pedido_acao' p.pk 'entregar' %}" class="form-compacto"
+            onsubmit="return confirm('Confirmar a entrega do {{ p.numero }}? A venda será lançada nos relatórios.')">{% csrf_token %}
+        <select class="campo" name="forma" required>
+          <option value="">Forma de pagamento do restante…</option>
+          {% for k, n in formas %}<option value="{{ k }}">{{ n }}</option>{% endfor %}
+        </select>
+        <button class="botao primario" type="submit">Marcar como entregue</button>
+      </form>
+      <small class="muted">Ao entregar, o pedido vira venda direta na data de hoje e entra nos relatórios.</small>
+    </div>
+
+    <form method="post" action="{% url 'encomendas:pedido_acao' p.pk 'cancelar' %}" onsubmit="return confirm('Cancelar o pedido {{ p.numero }}?')">{% csrf_token %}
+      <button class="botao perigo largo" type="submit">Cancelar pedido</button></form>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

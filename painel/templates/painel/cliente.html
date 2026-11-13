@@ -1,0 +1,30 @@
+{% extends 'painel/base.html' %}
+{% load painel_tags %}
+{% block titulo %}{{ c.name }}{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <div><p class="migalha"><a href="{% url 'painel:lista' 'clientes' %}">Clientes</a></p><h1>{{ c.name }}</h1></div>
+  <div class="acoes">
+    <a class="botao" href="{% url 'painel:editar' 'clientes' c.pk %}">Editar</a>
+    <a class="botao primario" href="{% url 'painel:novo' 'vendas-internas' %}?client={{ c.pk }}&proximo={{ request.path|urlencode }}">+ Nova venda</a>
+  </div>
+</div>
+<div class="kpis">
+  <div class="cartao kpi"><span>Telefone</span><strong class="menor">{{ c.telefone }}</strong></div>
+  <div class="cartao kpi"><span>Aniversário</span><strong class="menor">{{ c.date_nasc|date:"d/m/Y"|default:"—" }}</strong></div>
+  <div class="cartao kpi"><span>Total comprado</span><strong>{{ total|brl }}</strong></div>
+  <div class="cartao kpi"><span>Compras</span><strong>{{ compras|length }}</strong></div>
+</div>
+{% if c.endereco or c.cpf %}<p class="sub">{% if c.cpf %}CPF {{ c.cpf }}{% endif %}{% if c.endereco %} · {{ c.endereco }}{% endif %}</p>{% endif %}
+<div class="cartao tabela-rolavel">
+  <h3 class="titulo-cartao">Histórico de compras</h3>
+  <table class="tabela">
+    <thead><tr><th>Data</th><th>Produto</th><th class="num">Qtd.</th><th class="num">Valor</th><th>Pagamento</th><th></th></tr></thead>
+    {% for v in compras %}
+      <tr><td>{{ v.date|date:"d/m/Y" }}</td><td>{{ v.product }}</td><td class="num">{{ v.qnt|default:1 }}</td>
+        <td class="num">{{ v.valor|brl }}</td><td>{{ v.get_pagment_display }}</td>
+        <td class="acoes-linha"><a href="{% url 'painel:editar' 'vendas-internas' v.pk %}?proximo={{ request.path|urlencode }}">Editar</a></td></tr>
+    {% empty %}<tr><td colspan="6" class="vazio">Nenhuma compra registrada.</td></tr>{% endfor %}
+  </table>
+</div>
+{% endblock %}

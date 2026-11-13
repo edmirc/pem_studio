@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Category, Product, FilamentBrand, FilametType, Filment, CadFeiras, CadClientes
+from .models import Category, Product, FilamentBrand, FilametType, Filment, CadFeiras, CadClientes, Contas, Insumo
 
 
 @admin.register(Category)
@@ -50,3 +50,15 @@ class CadFeirasAdmin(admin.ModelAdmin):
 class CadClientesAdmin(admin.ModelAdmin):
     list_display = ("id", "name", "cpf", "date_nasc","telefone", "endereco")
     search_fields = ("name",)
+
+
+@admin.register(Insumo)
+class InsumoAdmin(admin.ModelAdmin):
+    list_display = ("id", "name", "unidade", "observacao")
+    search_fields = ("name",)
+
+
+@admin.register(Contas)
+class ContasAdmin(admin.ModelAdmin):
+    list_display = ("id", "apelido", "banco", "name", "operacao")
+    search_fields = ("apelido", "banco")

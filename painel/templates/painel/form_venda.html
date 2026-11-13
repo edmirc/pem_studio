@@ -1,0 +1,43 @@
+{% extends 'painel/form.html' %}
+{% block extra_form %}
+  <p class="dica">Digite o <b>preço unitário</b> e a quantidade: o valor total é calculado sozinho. Se der desconto, pode mudar o valor total direto.
+  {% if cfg.slug == 'vendas-internas' %} Cliente novo? <a href="{% url 'painel:novo' 'clientes' %}?proximo={{ request.path|urlencode }}">Cadastrar cliente</a>.{% endif %}</p>
+  {{ precos|json_script:"precos" }}
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  const precos = JSON.parse(document.getElementById('precos').textContent);
+  const produto = document.querySelector('[name=product]');
+  const qnt = document.querySelector('[name=qnt]');
+  const valor = document.querySelector('[name=valor], [name=value]');
+  if (!produto || !valor) return;
+
+  // campo auxiliar "Preço unitário", colocado antes do valor total
+  const grupoValor = valor.closest('.grupo-campo');
+  const grupo = document.createElement('div');
+  grupo.className = 'grupo-campo';
+  grupo.innerHTML = '<label for="id_unitario">Preço unitário</label>' +
+    '<input class="campo" type="number" step="0.01" min="0" id="id_unitario" inputmode="decimal">';
+  grupoValor.parentNode.insertBefore(grupo, grupoValor);
+  const unit = grupo.querySelector('input');
+
+  const q = () => Math.max(1, parseInt(qnt && qnt.value ? qnt.value : 1, 10) || 1);
+  const n = el => parseFloat(String(el.value).replace(',', '.'));
+  const totalPeloUnitario = () => { if (!isNaN(n(unit))) valor.value = (Math.round(n(unit) * q() * 100) / 100).toFixed(2); };
+  const unitarioPeloTotal = () => { if (!isNaN(n(valor))) unit.value = (n(valor) / q()).toFixed(2); };
+
+  // ao editar uma venda existente, mostra o unitário a partir do total
+  if (valor.value) unitarioPeloTotal();
+  else if (precos[produto.value]) { unit.value = parseFloat(precos[produto.value]).toFixed(2); totalPeloUnitario(); }
+
+  produto.addEventListener('change', () => {
+    const p = parseFloat(precos[produto.value]);
+    if (!isNaN(p)) { unit.value = p.toFixed(2); totalPeloUnitario(); }
+  });
+  unit.addEventListener('input', totalPeloUnitario);
+  if (qnt) qnt.addEventListener('input', totalPeloUnitario);
+  valor.addEventListener('input', unitarioPeloTotal);
+})();
+</script>
+{% endblock %}

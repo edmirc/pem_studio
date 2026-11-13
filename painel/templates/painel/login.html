@@ -1,0 +1,22 @@
+{% load static %}<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%231c1f26%22/%3E%3Ctext x=%2216%22 y=%2222%22 font-size=%2216%22 font-family=%22sans-serif%22 font-weight=%22800%22 text-anchor=%22middle%22 fill=%22%23d9822b%22%3EP%3C/text%3E%3C/svg%3E">
+  <title>Entrar · PEM Studio</title>
+  <link rel="stylesheet" href="{% static 'painel/css/app.css' %}">
+</head>
+<body class="pagina-login">
+  <form method="post" class="caixa-login">
+    {% csrf_token %}
+    <div class="marca grande">PEM <span>Studio</span></div>
+    {% if form.errors %}<div class="aviso error">Usuário ou senha incorretos.</div>{% endif %}
+    <label>Usuário <input class="campo" type="text" name="username" autofocus autocapitalize="none" required></label>
+    <label>Senha <input class="campo" type="password" name="password" required></label>
+    <input type="hidden" name="next" value="{{ next }}">
+    <button type="submit" class="botao primario largo">Entrar</button>
+    <p class="dica">Use o mesmo usuário do Admin do Django.</p>
+  </form>
+</body>
+</html>

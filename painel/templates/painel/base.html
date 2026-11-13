@@ -1,0 +1,75 @@
+{% load static painel_tags %}<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1c1f26">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%231c1f26%22/%3E%3Ctext x=%2216%22 y=%2222%22 font-size=%2216%22 font-family=%22sans-serif%22 font-weight=%22800%22 text-anchor=%22middle%22 fill=%22%23d9822b%22%3EP%3C/text%3E%3C/svg%3E">
+  <title>{% block titulo %}PEM Studio{% endblock %} · PEM Studio</title>
+  <link rel="stylesheet" href="{% static 'painel/css/app.css' %}">
+  <script src="{% static 'painel/js/htmx.min.js' %}" defer></script>
+  {% block head %}{% endblock %}
+</head>
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+  <input type="checkbox" id="menu-toggle" class="menu-toggle" aria-hidden="true">
+  <header class="topo-mobile">
+    <label for="menu-toggle" class="botao-menu" aria-label="Abrir menu">☰</label>
+    <a href="{% url 'painel:inicio' %}" class="marca-mobile">PEM <span>Studio</span></a>
+  </header>
+
+  <aside class="lateral">
+    <a href="{% url 'painel:inicio' %}" class="marca">PEM <span>Studio</span></a>
+    <nav>
+      <a class="{% ativo 'inicio' %}" href="{% url 'painel:inicio' %}">Início</a>
+
+      <p class="grupo">Vendas</p>
+      <a class="{% ativo 'pdv' %} destaque" href="{% url 'painel:pdv_escolher' %}">Vender na feira</a>
+      <a class="{% ativo 'vendas-feira' %}" href="{% url 'painel:lista' 'vendas-feira' %}">Vendas de feira</a>
+      <a class="{% ativo 'vendas-internas' %}" href="{% url 'painel:lista' 'vendas-internas' %}">Vendas diretas</a>
+
+      <p class="grupo">Encomendas</p>
+      <a class="{% ativo 'solicitacoes' %}" href="{% url 'encomendas:solicitacoes' %}">Solicitações</a>
+      <a class="{% ativo 'orcamentos' %}" href="{% url 'encomendas:orcamentos' %}">Orçamentos</a>
+      <a class="{% ativo 'pedidos' %}" href="{% url 'encomendas:pedidos' %}">Pedidos</a>
+      <a class="{% ativo 'calculadora' %}" href="{% url 'encomendas:calculadora' %}">Calculadora de preço</a>
+
+      <p class="grupo">Compras</p>
+      <a class="{% ativo 'compras-filamento' %}" href="{% url 'painel:lista' 'compras-filamento' %}">Filamentos</a>
+      <a class="{% ativo 'compras-insumo' %}" href="{% url 'painel:lista' 'compras-insumo' %}">Insumos</a>
+      <a class="{% ativo 'despesas' %}" href="{% url 'painel:lista' 'despesas' %}">Outras despesas</a>
+
+      <p class="grupo">Relatórios</p>
+      <a class="{% ativo 'rel-mensal' %}" href="{% url 'painel:relatorio_mensal' %}">Mensal</a>
+      <a class="{% ativo 'rel-anual' %}" href="{% url 'painel:relatorio_anual' %}">Anual</a>
+
+      <p class="grupo">Cadastros</p>
+      <a class="{% ativo 'clientes' %}" href="{% url 'painel:lista' 'clientes' %}">Clientes</a>
+      <a class="{% ativo 'produtos' %}" href="{% url 'painel:lista' 'produtos' %}">Produtos</a>
+      <a class="{% ativo 'precificacao' %}" href="{% url 'painel:lista' 'precificacao' %}">Precificação</a>
+      <a class="{% ativo 'categorias' %}" href="{% url 'painel:lista' 'categorias' %}">Categorias</a>
+      <a class="{% ativo 'filamentos' %}" href="{% url 'painel:lista' 'filamentos' %}">Filamentos</a>
+      <a class="{% ativo 'marcas' 'tipos' %}" href="{% url 'painel:lista' 'marcas' %}">Marcas e tipos</a>
+      <a class="{% ativo 'insumos' %}" href="{% url 'painel:lista' 'insumos' %}">Insumos</a>
+      <a class="{% ativo 'feiras' %}" href="{% url 'painel:lista' 'feiras' %}">Feiras</a>
+      <a class="{% ativo 'contas' %}" href="{% url 'painel:lista' 'contas' %}">Contas e cartões</a>
+      <a class="{% ativo 'config' %}" href="{% url 'encomendas:configuracoes' %}">Impressoras e taxas</a>
+    </nav>
+    <div class="rodape-lateral">
+      <span>{{ request.user.get_full_name|default:request.user.username }}</span>
+      <a href="{% url 'admin:index' %}">Admin</a>
+      <form method="post" action="{% url 'sair' %}">{% csrf_token %}<button type="submit" class="link">Sair</button></form>
+    </div>
+  </aside>
+  <label for="menu-toggle" class="fundo-menu" aria-hidden="true"></label>
+
+  <main class="conteudo">
+    {% if messages %}
+      <div class="avisos">
+        {% for m in messages %}<div class="aviso {{ m.tags }}">{{ m }}</div>{% endfor %}
+      </div>
+    {% endif %}
+    {% block conteudo %}{% endblock %}
+  </main>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

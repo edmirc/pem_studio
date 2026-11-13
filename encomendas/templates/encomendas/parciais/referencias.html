@@ -1,0 +1,22 @@
+{% load painel_tags %}
+{% if sol %}
+<div class="cartao referencias nao-imprimir">
+  <div class="cabecalho-cartao">
+    <h3 class="titulo-cartao">Referências do cliente</h3>
+    <a class="pequeno" href="{% url 'encomendas:solicitacao' sol.pk %}">{{ sol.numero }} →</a>
+  </div>
+  <p class="ref-titulo"><b>{{ sol.titulo }}</b>{% if sol.quantidade > 1 %} · {{ sol.quantidade }} unidades{% endif %}</p>
+  <dl class="ref-dados">
+    {% if sol.medidas or sol.medidas_obs %}<div><dt>Medidas</dt><dd>{{ sol.medidas }}{% if sol.medidas and sol.medidas_obs %} · {% endif %}{{ sol.medidas_obs }}</dd></div>{% endif %}
+    {% if sol.cores %}<div><dt>Cores</dt><dd>{{ sol.cores }}</dd></div>{% endif %}
+    {% if sol.material %}<div><dt>Material</dt><dd>{{ sol.material }}</dd></div>{% endif %}
+    {% if sol.prazo %}<div><dt>Precisa até</dt><dd>{{ sol.prazo|date:"d/m/Y" }}</dd></div>{% endif %}
+  </dl>
+  {% if sol.descricao %}<p class="ref-desc">{{ sol.descricao|linebreaksbr|truncatewords_html:60 }}</p>{% endif %}
+  {% with imgs=sol.imagens %}{% if imgs %}
+    <div class="galeria pequena" data-galeria>
+      {% for a in imgs %}<a href="{% url 'encomendas:arquivo' a.pk %}" data-foto><img src="{% url 'encomendas:arquivo_tipo' a.pk 'mini' %}" alt="{{ a.nome_original }}" loading="lazy"></a>{% endfor %}
+    </div>
+  {% endif %}{% endwith %}
+</div>
+{% endif %}

@@ -17,24 +17,38 @@ import os
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
+# --------------------------------------------------------------------------
+# Configurações sensíveis ficam no arquivo .env (fora do código).
+# Veja env.exemplo. No Docker, o docker-compose.yml carrega o .env.
+# --------------------------------------------------------------------------
+def _carregar_env(caminho):
+    if not caminho.exists():
+        return
+    for linha in caminho.read_text(encoding='utf-8').splitlines():
+        linha = linha.strip()
+        if linha and not linha.startswith('#') and '=' in linha:
+            chave, valor = linha.split('=', 1)
+            os.environ.setdefault(chave.strip(), valor.strip().strip('"').strip("'"))
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-1jm28i_$y&^&k94uynuy$7f!lj@+am(uu#*joc6ygksa8dh%3i'
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+_carregar_env(BASE_DIR / '.env')
 
-#ALLOWED_HOSTS = []
-ALLOWED_HOSTS = ["192.168.3.191", "127.0.0.1", "localhost", "100.116.208.105"]
-CSRF_TRUSTED_ORIGINS = [
-    'http://192.168.3.191:81',
-    'http://192.168.3.191',
-    'http://100.116.208.105:81',
-    'http://S100.116.208.105',
-]
 
+def _lista(nome, padrao=''):
+    return [v.strip() for v in os.environ.get(nome, padrao).split(',') if v.strip()]
+
+
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
+if not SECRET_KEY:
+    from django.core.exceptions import ImproperlyConfigured
+    raise ImproperlyConfigured(
+        'Arquivo .env não encontrado ou sem DJANGO_SECRET_KEY. '
+        'Copie env.exemplo para .env na pasta do projeto e preencha.')
+
+DEBUG = os.environ.get('DJANGO_DEBUG', '0').lower() in ('1', 'true', 'sim')
+
+ALLOWED_HOSTS = _lista('DJANGO_ALLOWED_HOSTS', '127.0.0.1,localhost')
+CSRF_TRUSTED_ORIGINS = _lista('DJANGO_CSRF_TRUSTED_ORIGINS')
 
 
 # Application definition
@@ -49,10 +63,13 @@ INSTALLED_APPS = [
     'cadastro',
     'vendas',
     'financas',
+    'encomendas',
+    'painel',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -87,11 +104,13 @@ WSGI_APPLICATION = 'core.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'pem_studio',
-        'USER': 'remoto',
-        'PASSWORD': '@Ede025978',
-        'HOST': '192.168.3.190',
-        'PORT': '3306',
+        'NAME': os.environ.get('DB_NAME', 'pem_studio'),
+        'USER': os.environ.get('DB_USER', ''),
+        'PASSWORD': os.environ.get('DB_PASSWORD', ''),
+        'HOST': os.environ.get('DB_HOST', '127.0.0.1'),
+        'PORT': os.environ.get('DB_PORT', '3306'),
+        'OPTIONS': {'charset': 'utf8mb4'},
+        'CONN_MAX_AGE': 60,
     }
 }
 
@@ -120,7 +139,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'pt-br'
 
-TIME_ZONE = 'America/Sao_Paulo'
+TIME_ZONE = os.environ.get('TIME_ZONE', 'America/Cuiaba')
 
 USE_I18N = True
 
@@ -132,8 +151,27 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+# Fotos e arquivos das solicitações. No Docker fica numa pasta do HD externo
+# (veja PASTA_IMAGENS no .env / docker-compose.yml). Só são servidos para quem está logado.
+MEDIA_ROOT = os.environ.get('MEDIA_ROOT', os.path.join(BASE_DIR, 'media'))
+MEDIA_URL = '/arquivos/'
+FILE_UPLOAD_PERMISSIONS = 0o644
+DATA_UPLOAD_MAX_NUMBER_FILES = 200
+
+STORAGES = {
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    'staticfiles': {'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage'},
+}
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Login das telas do painel (usa os mesmos usuários do Admin)
+LOGIN_URL = 'login'
+LOGIN_REDIRECT_URL = 'painel:inicio'
+LOGOUT_REDIRECT_URL = 'login'
+
+# Atrás de um proxy (nginx, Tailscale serve etc.)
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

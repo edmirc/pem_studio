@@ -1,0 +1,109 @@
+{% extends 'painel/base.html' %}
+{% load static painel_tags %}
+{% block titulo %}Início{% endblock %}
+{% block head %}<script src="{% static 'painel/js/chart.umd.min.js' %}" defer></script>{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <div><p class="migalha">Resumo de</p><h1>{{ mes_nome }}</h1></div>
+  <div class="acoes">
+    <a class="botao" href="{% url 'painel:relatorio_mensal' %}?mes={{ mes_valor }}">Relatório do mês</a>
+    <a class="botao primario" href="{% url 'painel:pdv_escolher' %}">Vender na feira</a>
+  </div>
+</div>
+
+<div class="kpis">
+  <div class="cartao kpi">
+    <span>Faturamento</span><strong>{{ r.receita|brl }}</strong>
+    {% if var_receita is not None %}<small class="{% if var_receita >= 0 %}positivo{% else %}negativo{% endif %}">{% if var_receita >= 0 %}▲{% else %}▼{% endif %} {{ var_receita }}% vs. mês anterior</small>{% endif %}
+  </div>
+  <div class="cartao kpi">
+    <span>Compras e despesas</span><strong>{{ r.despesas|brl }}</strong>
+    {% if var_despesas is not None %}<small class="muted">{% if var_despesas >= 0 %}▲{% else %}▼{% endif %} {{ var_despesas }}% vs. mês anterior</small>{% endif %}
+  </div>
+  <div class="cartao kpi">
+    <span>Resultado</span><strong class="{% if r.resultado < 0 %}negativo{% endif %}">{{ r.resultado|brl }}</strong>
+    <small class="muted">faturamento − despesas</small>
+  </div>
+  <div class="cartao kpi">
+    <span>Itens vendidos</span><strong>{{ r.itens }}</strong>
+    <small class="muted">ticket médio {{ r.ticket|brl }}</small>
+  </div>
+</div>
+
+{% if pedidos_em_producao or orcamentos_aguardando or solicitacoes_abertas %}
+<div class="cartao faixa-encomendas">
+  <div class="fe-resumo">
+    <a href="{% url 'encomendas:solicitacoes' %}"><b>{{ solicitacoes_abertas }}</b> solicitaç{{ solicitacoes_abertas|pluralize:"ão,ões" }} para orçar</a>
+    <a href="{% url 'encomendas:pedidos' %}"><b>{{ pedidos_em_producao }}</b> pedido{{ pedidos_em_producao|pluralize }} em produção</a>
+    <a href="{% url 'encomendas:orcamentos' %}?status=ENVIADO"><b>{{ orcamentos_aguardando }}</b> orçamento{{ orcamentos_aguardando|pluralize }} aguardando resposta</a>
+  </div>
+  {% if pedidos_semana %}
+  <ul class="fe-lista">
+    {% for p in pedidos_semana %}
+      <li class="{% if p.atrasado %}negativo{% endif %}"><a href="{% url 'encomendas:pedido' p.pk %}">{{ p.cliente }}</a>
+        <small>{% if p.atrasado %}atrasado {{ p.dias_atraso }}d{% elif p.dias_para_prazo == 0 %}hoje{% else %}{{ p.prazo|date:"d/m" }}{% endif %} · {{ p.get_status_display }}</small></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</div>
+{% endif %}
+
+<div class="duas-colunas largura-2-1">
+  <div class="cartao">
+    <h3 class="titulo-cartao">Faturamento × despesas em {{ ano }}</h3>
+    <div class="grafico"><canvas id="g-ano"></canvas></div>
+  </div>
+  <div class="cartao">
+    <h3 class="titulo-cartao">Formas de pagamento no mês</h3>
+    <ul class="barras">
+      {% for p in pagamentos %}
+        <li><span>{{ p.nome }}</span><b>{{ p.total|brl }}</b>
+          <i style="--p: {{ p.total|pct:r.receita|stringformat:"s" }}%"></i></li>
+      {% endfor %}
+    </ul>
+    <div class="divisao">
+      <div><span>Feiras</span><b>{{ r.receita_feiras|brl }}</b></div>
+      <div><span>Vendas diretas</span><b>{{ r.receita_internas|brl }}</b></div>
+    </div>
+  </div>
+</div>
+
+<div class="tres-colunas">
+  <div class="cartao">
+    <h3 class="titulo-cartao">Mais vendidos no mês</h3>
+    <table class="tabela compacta">
+      {% for p in produtos %}<tr><td>{{ p.produto }}</td><td class="num">{{ p.qnt }}×</td><td class="num">{{ p.total|brl }}</td></tr>
+      {% empty %}<tr><td class="vazio">Sem vendas este mês.</td></tr>{% endfor %}
+    </table>
+  </div>
+  <div class="cartao">
+    <h3 class="titulo-cartao">Últimas feiras</h3>
+    <ul class="lista-simples">
+      {% for f in ultimas_feiras %}
+        <li><a href="{% url 'painel:fechamento_feira' f.pk %}">{{ f.name }}</a><small>{{ f.date|date:"d/m/Y" }}</small></li>
+      {% empty %}<li class="vazio">Nenhuma feira.</li>{% endfor %}
+    </ul>
+  </div>
+  <div class="cartao">
+    <h3 class="titulo-cartao">Aniversariantes do mês 🎂</h3>
+    <ul class="lista-simples">
+      {% for c in aniversariantes %}
+        <li><a href="{% url 'painel:cliente' c.pk %}">{{ c.name }}</a><small>{{ c.date_nasc|date:"d/m" }} · {{ c.telefone }}</small></li>
+      {% empty %}<li class="vazio">Nenhum cliente faz aniversário este mês.</li>{% endfor %}
+    </ul>
+  </div>
+</div>
+{{ grafico|json_script:"dados-grafico" }}
+{% endblock %}
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const d = JSON.parse(document.getElementById('dados-grafico').textContent);
+  graficoBarras('g-ano', d.rotulos, [
+    { label: 'Faturamento', data: d.receita, cor: 'receita' },
+    { label: 'Despesas', data: d.despesas, cor: 'despesa' },
+  ]);
+});
+</script>
+<script src="{% static 'painel/js/graficos.js' %}"></script>
+{% endblock %}

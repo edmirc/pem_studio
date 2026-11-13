@@ -1,0 +1,58 @@
+{% extends 'painel/base.html' %}
+{% load static %}
+{% block titulo %}{% if obj %}Editar {{ obj.numero }}{% else %}Nova solicitação{% endif %}{% endblock %}
+{% block conteudo %}
+<div class="cabecalho"><div>
+  <p class="migalha"><a href="{% url 'encomendas:solicitacoes' %}">Solicitações</a></p>
+  <h1>{% if obj %}Editar {{ obj.numero }}{% else %}Nova solicitação{% endif %}</h1></div></div>
+<form method="post" enctype="multipart/form-data" novalidate>
+  {% csrf_token %}
+  <div class="cartao formulario largo">
+    <h3 class="titulo-cartao">Cliente</h3>
+    <div class="grade-campos">
+      {% include 'encomendas/parciais/campo.html' with campo=form.cliente %}
+      <div id="g-nome_cliente">{% include 'encomendas/parciais/campo.html' with campo=form.nome_cliente %}</div>
+      <div id="g-telefone">{% include 'encomendas/parciais/campo.html' with campo=form.telefone %}</div>
+      {% include 'encomendas/parciais/campo.html' with campo=form.canal %}
+      {% if form.status %}{% include 'encomendas/parciais/campo.html' with campo=form.status %}{% endif %}
+    </div>
+  </div>
+  <div class="cartao formulario largo">
+    <h3 class="titulo-cartao">O que o cliente quer</h3>
+    <div class="grade-campos">
+      <div class="largo">{% include 'encomendas/parciais/campo.html' with campo=form.titulo %}</div>
+      {% include 'encomendas/parciais/campo.html' with campo=form.quantidade %}
+      {% include 'encomendas/parciais/campo.html' with campo=form.prazo %}
+    </div>
+    <div style="margin-top:14px">{% include 'encomendas/parciais/campo.html' with campo=form.descricao %}</div>
+    <h4 class="sub-titulo">Medidas e acabamento</h4>
+    <div class="grade-campos">
+      {% include 'encomendas/parciais/campo.html' with campo=form.largura %}
+      {% include 'encomendas/parciais/campo.html' with campo=form.altura %}
+      {% include 'encomendas/parciais/campo.html' with campo=form.profundidade %}
+      {% include 'encomendas/parciais/campo.html' with campo=form.medidas_obs %}
+      {% include 'encomendas/parciais/campo.html' with campo=form.cores %}
+      {% include 'encomendas/parciais/campo.html' with campo=form.material %}
+      {% include 'encomendas/parciais/campo.html' with campo=form.verba %}
+    </div>
+    <datalist id="lista-materiais">{% for m in materiais %}<option value="{{ m }}">{% endfor %}</datalist>
+    <h4 class="sub-titulo">Fotos e arquivos de referência</h4>
+    {% include 'encomendas/parciais/zona_anexos.html' %}
+    {% if obj %}<p class="dica">Os arquivos já anexados estão na ficha da solicitação.</p>{% endif %}
+    <div class="barra-botoes">
+      <a class="botao" href="{% if obj %}{% url 'encomendas:solicitacao' obj.pk %}{% else %}{% url 'encomendas:solicitacoes' %}{% endif %}">Cancelar</a>
+      <button class="botao primario" type="submit">Salvar</button>
+    </div>
+  </div>
+</form>
+{% endblock %}
+{% block scripts %}
+<script src="{% static 'painel/js/anexos.js' %}"></script>
+<script>
+(function () {
+  const cli = document.getElementById('id_cliente');
+  const alternar = () => ['g-nome_cliente', 'g-telefone'].forEach(g => document.getElementById(g).hidden = !!cli.value);
+  cli.addEventListener('change', alternar); alternar();
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,127 @@
+{% extends 'painel/base.html' %}
+{% load static painel_tags %}
+{% block titulo %}Relatório · {{ mes_nome }}{% endblock %}
+{% block head %}<script src="{% static 'painel/js/chart.umd.min.js' %}" defer></script>{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <div><p class="migalha">Relatório mensal</p><h1>{{ mes_nome }}</h1></div>
+  <form method="get" class="acoes nao-imprimir">
+    <a class="botao icone" href="?mes={{ anterior }}" title="Mês anterior">‹</a>
+    <input class="campo" type="month" name="mes" value="{{ mes_valor }}" onchange="this.form.submit()">
+    <a class="botao icone" href="?mes={{ seguinte }}" title="Próximo mês">›</a>
+    <button type="button" class="botao primario" onclick="window.print()">Imprimir / PDF</button>
+  </form>
+</div>
+
+<div class="kpis">
+  <div class="cartao kpi"><span>Faturamento</span><strong>{{ r.receita|brl }}</strong><small class="muted">{{ r.vendas }} vendas · {{ r.itens }} itens</small></div>
+  <div class="cartao kpi"><span>Compras e despesas</span><strong>{{ r.despesas|brl }}</strong></div>
+  <div class="cartao kpi"><span>Resultado do mês</span><strong class="{% if r.resultado < 0 %}negativo{% else %}positivo{% endif %}">{{ r.resultado|brl }}</strong><small class="muted">faturamento − compras/despesas</small></div>
+  <div class="cartao kpi"><span>Custo dos produtos vendidos</span><strong>{{ custo_vendido|brl }}</strong><small class="muted">pela tabela de precificação</small></div>
+</div>
+
+<div class="duas-colunas">
+  <div class="cartao">
+    <h3 class="titulo-cartao">Entradas</h3>
+    <table class="tabela">
+      <tr><td>Feiras</td><td class="num">{{ r.receita_feiras|brl }}</td></tr>
+      <tr><td>Vendas diretas</td><td class="num">{{ r.receita_internas|brl }}</td></tr>
+      <tr class="total"><td>Total de entradas</td><td class="num">{{ r.receita|brl }}</td></tr>
+    </table>
+    <h3 class="titulo-cartao espaco">Por forma de pagamento</h3>
+    <table class="tabela">
+      {% for p in pagamentos %}<tr><td>{{ p.nome }}</td><td class="num">{{ p.total|brl }}</td><td class="num muted">{{ p.total|pct:r.receita }}%</td></tr>{% endfor %}
+    </table>
+  </div>
+  <div class="cartao">
+    <h3 class="titulo-cartao">Saídas</h3>
+    <table class="tabela">
+      <tr><td>Filamentos</td><td class="num">{{ r.desp_filamento|brl }}</td></tr>
+      <tr><td>Insumos</td><td class="num">{{ r.desp_insumos|brl }}</td></tr>
+      <tr><td>Outras despesas</td><td class="num">{{ r.desp_outras|brl }}</td></tr>
+      <tr class="total"><td>Total de saídas</td><td class="num">{{ r.despesas|brl }}</td></tr>
+    </table>
+    <h3 class="titulo-cartao espaco">Resultado</h3>
+    <table class="tabela">
+      <tr><td>Entradas − saídas</td><td class="num {% if r.resultado < 0 %}negativo{% endif %}"><b>{{ r.resultado|brl }}</b></td></tr>
+      <tr><td>Ticket médio por venda</td><td class="num">{{ r.ticket|brl }}</td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="cartao">
+  <h3 class="titulo-cartao">Faturamento por dia</h3>
+  <div class="grafico baixo"><canvas id="g-dias"></canvas></div>
+</div>
+
+<div class="cartao">
+  <h3 class="titulo-cartao">Feiras do mês</h3>
+  <table class="tabela">
+    <thead><tr><th>Data</th><th>Feira</th><th>Local</th><th class="num">Vendas</th><th class="num">Itens</th><th class="num">Total</th></tr></thead>
+    {% for f in feiras %}
+      <tr><td>{{ f.nomeFeira__date|date:"d/m" }}</td><td><a href="{% url 'painel:fechamento_feira' f.nomeFeira %}">{{ f.nomeFeira__name }}</a></td>
+        <td>{{ f.nomeFeira__local }}</td><td class="num">{{ f.vendas }}</td><td class="num">{{ f.itens }}</td><td class="num">{{ f.total|brl }}</td></tr>
+    {% empty %}<tr><td colspan="6" class="vazio">Nenhuma venda em feira neste mês.</td></tr>{% endfor %}
+  </table>
+</div>
+
+<div class="duas-colunas largura-2-1">
+  <div class="cartao tabela-rolavel">
+    <h3 class="titulo-cartao">Vendas por produto</h3>
+    <table class="tabela">
+      <thead><tr><th>Produto</th><th class="num">Qtd.</th><th class="num">Faturado</th><th class="num">Custo</th><th class="num">Lucro bruto</th></tr></thead>
+      {% for p in produtos %}
+        <tr><td>{{ p.produto }}</td><td class="num">{{ p.qnt }}</td><td class="num">{{ p.total|brl }}</td>
+          <td class="num muted">{{ p.custo|brl }}</td><td class="num">{{ p.lucro|brl }}</td></tr>
+      {% empty %}<tr><td colspan="5" class="vazio">Sem vendas.</td></tr>{% endfor %}
+    </table>
+    {% if sem_custo %}<p class="dica">Sem precificação cadastrada (custo não entra no cálculo): {{ sem_custo|join:", " }}.</p>{% endif %}
+  </div>
+  <div class="cartao">
+    <h3 class="titulo-cartao">Por categoria</h3>
+    <table class="tabela">
+      {% for c in categorias %}<tr><td>{{ c.nome }}</td><td class="num">{{ c.qnt }}</td><td class="num">{{ c.total|brl }}</td></tr>
+      {% empty %}<tr><td class="vazio">Sem vendas.</td></tr>{% endfor %}
+    </table>
+  </div>
+</div>
+
+<div class="cartao tabela-rolavel">
+  <h3 class="titulo-cartao">Vendas diretas</h3>
+  <table class="tabela">
+    <thead><tr><th>Data</th><th>Cliente</th><th>Produto</th><th class="num">Qtd.</th><th class="num">Valor</th><th>Pagamento</th></tr></thead>
+    {% for v in internas %}
+      <tr><td>{{ v.date|date:"d/m" }}</td><td>{{ v.client }}</td><td>{{ v.product }}</td><td class="num">{{ v.qnt|default:1 }}</td><td class="num">{{ v.valor|brl }}</td><td>{{ v.get_pagment_display }}</td></tr>
+    {% empty %}<tr><td colspan="6" class="vazio">Nenhuma venda direta neste mês.</td></tr>{% endfor %}
+  </table>
+</div>
+
+<div class="cartao tabela-rolavel">
+  <h3 class="titulo-cartao">Compras e despesas</h3>
+  <table class="tabela">
+    <thead><tr><th>Data</th><th>Tipo</th><th>Descrição</th><th>Fornecedor</th><th>Pagamento</th><th class="num">Valor</th></tr></thead>
+    {% for c in compras_filamento %}
+      <tr><td>{{ c.date|date:"d/m" }}</td><td><span class="etiqueta">Filamento</span></td><td>{{ c.qnt }}× {{ c.filamento.name }} {{ c.filamento.color }}</td><td>{{ c.fornecedor }}</td><td>{{ c.pagamento|default:"—" }}{% if c.parcelas > 1 %} ({{ c.parcelas }}x){% endif %}</td><td class="num">{{ c.valor|brl }}</td></tr>
+    {% endfor %}
+    {% for c in compras_insumo %}
+      <tr><td>{{ c.date|date:"d/m" }}</td><td><span class="etiqueta">Insumo</span></td><td>{{ c.qnt|num }} {{ c.insumo.get_unidade_display|lower }} · {{ c.insumo }}</td><td>{{ c.fornecedor }}</td><td>{{ c.pagamento|default:"—" }}{% if c.parcelas > 1 %} ({{ c.parcelas }}x){% endif %}</td><td class="num">{{ c.valor|brl }}</td></tr>
+    {% endfor %}
+    {% for c in outras %}
+      <tr><td>{{ c.date|date:"d/m" }}</td><td><span class="etiqueta">Outra</span></td><td>{{ c.saida }}</td><td>{{ c.fornecedor }}</td><td>{{ c.pagamento }} {% if c.parcela %}({{ c.parcela }}){% endif %}</td><td class="num">{{ c.valor|brl }}</td></tr>
+    {% endfor %}
+    {% if not compras_filamento and not compras_insumo and not outras %}<tr><td colspan="6" class="vazio">Nenhuma compra neste mês.</td></tr>{% endif %}
+    <tr class="total"><td colspan="5">Total</td><td class="num">{{ r.despesas|brl }}</td></tr>
+  </table>
+  <p class="dica">Compras parceladas entram pelo valor total no mês da compra.</p>
+</div>
+{{ grafico|json_script:"dados-grafico" }}
+{% endblock %}
+{% block scripts %}
+<script src="{% static 'painel/js/graficos.js' %}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const d = JSON.parse(document.getElementById('dados-grafico').textContent);
+  graficoBarras('g-dias', d.rotulos, [{ label: 'Faturamento', data: d.valores, cor: 'receita' }]);
+});
+</script>
+{% endblock %}

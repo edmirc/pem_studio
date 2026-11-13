@@ -1,0 +1,57 @@
+<div class="calc" id="{{ calc_id|default:'calc' }}">
+  <div class="calc-entradas">
+    <fieldset>
+      <legend>Peça</legend>
+      <div class="grade-campos">
+        <div class="grupo-campo largo"><label>Nome da peça</label><input class="campo" data-c="nome" placeholder="Ex.: Chaveiro personalizado"></div>
+        <div class="grupo-campo"><label>Peças na mesma impressão</label><input class="campo" type="number" min="1" step="1" data-c="pecas" value="1" inputmode="numeric"></div>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>Impressão <small>(valores da mesa inteira, como o fatiador mostra)</small></legend>
+      <div class="grade-campos">
+        <div class="grupo-campo largo"><label>Impressora</label><select class="campo" data-c="impressora"></select></div>
+        <div class="grupo-campo"><label>Tempo</label>
+          <div class="tempo"><input class="campo" type="number" min="0" step="1" data-c="horas" placeholder="0" inputmode="numeric"><span>h</span>
+            <input class="campo" type="number" min="0" max="59" step="1" data-c="minutos" placeholder="0" inputmode="numeric"><span>min</span></div></div>
+        <div class="grupo-campo"><label>Filamento usado (g)</label><input class="campo" type="number" min="0" step="0.1" data-c="gramas" inputmode="decimal"></div>
+        <div class="grupo-campo largo"><label>Filamento</label><select class="campo" data-c="filamento"></select></div>
+        <div class="grupo-campo" data-c="grupo-kg" hidden><label>Preço por kg (R$)</label><input class="campo" type="number" min="0" step="0.01" data-c="custo_kg" inputmode="decimal"></div>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>Acabamento e materiais <small>(por peça)</small></legend>
+      <div class="grade-campos">
+        <div class="grupo-campo"><label>Acabamento / montagem (min)</label><input class="campo" type="number" min="0" step="1" data-c="acabamento" value="0" inputmode="numeric"></div>
+        <div class="grupo-campo"><label>Outros custos (R$)</label><input class="campo" type="number" min="0" step="0.01" data-c="outros" value="0" inputmode="decimal"></div>
+      </div>
+      <label class="rotulo">Insumos <small>(embalagem, ímã, argola…)</small></label>
+      <div data-c="lista-insumos"></div>
+      <button type="button" class="botao pequeno" data-c="add-insumo">+ Insumo</button>
+    </fieldset>
+    <fieldset>
+      <legend>Preço</legend>
+      <div class="grade-campos">
+        <div class="grupo-campo"><label>Lucro sobre o custo (%)</label><input class="campo" type="number" min="0" step="1" data-c="lucro" inputmode="decimal"></div>
+        <div class="grupo-campo"><label>Arredondar para cima</label>
+          <select class="campo" data-c="arred"><option value="0">Não arredondar</option><option value="0.5">R$ 0,50</option><option value="1" selected>R$ 1,00</option><option value="5">R$ 5,00</option></select></div>
+      </div>
+    </fieldset>
+  </div>
+
+  <div class="calc-resultado">
+    <div class="preco-final"><span>Preço sugerido</span><strong data-r="preco">R$ 0,00</strong><small data-r="pecas">por peça</small></div>
+    <table class="tabela compacta">
+      <tr><td>Máquina <small class="muted">(energia ≈ <span data-r="energia"></span>)</small></td><td class="num" data-r="maquina"></td></tr>
+      <tr><td>Filamento</td><td class="num" data-r="filamento"></td></tr>
+      <tr><td>Reserva para falhas</td><td class="num" data-r="falha"></td></tr>
+      <tr><td>Acabamento</td><td class="num" data-r="mao"></td></tr>
+      <tr><td>Insumos</td><td class="num" data-r="insumos"></td></tr>
+      <tr><td>Outros</td><td class="num" data-r="outros"></td></tr>
+      <tr class="total"><td>Custo por peça</td><td class="num" data-r="custo"></td></tr>
+      <tr><td>Lucro</td><td class="num" data-r="lucro"></td></tr>
+    </table>
+    <h4 class="sub-titulo">Cobrando no cartão (repassando a taxa)</h4>
+    <table class="tabela compacta tabela-cartao"><tbody data-r="cartao"></tbody></table>
+  </div>
+</div>

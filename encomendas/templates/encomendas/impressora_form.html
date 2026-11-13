@@ -1,0 +1,10 @@
+{% extends 'painel/base.html' %}
+{% block titulo %}Impressora{% endblock %}
+{% block conteudo %}
+<div class="cabecalho"><div><p class="migalha"><a href="{% url 'encomendas:configuracoes' %}">Configurações</a></p>
+  <h1>{% if obj %}{{ obj.nome }}{% else %}Nova impressora{% endif %}</h1></div></div>
+<form method="post" class="cartao formulario" novalidate>{% csrf_token %}
+  <div class="grade-campos">{% for campo in form %}{% include 'encomendas/parciais/campo.html' %}{% endfor %}</div>
+  <div class="barra-botoes"><a class="botao" href="{% url 'encomendas:configuracoes' %}">Cancelar</a><button class="botao primario" type="submit">Salvar</button></div>
+</form>
+{% endblock %}

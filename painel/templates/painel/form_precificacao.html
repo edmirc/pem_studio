@@ -1,0 +1,27 @@
+{% extends 'painel/form.html' %}
+{% load painel_tags %}
+{% block extra_form %}
+  <div class="calculo" id="calculo">
+    <div><span>Custo</span><strong id="c-custo">—</strong></div>
+    <div><span>Preço sugerido (2×)</span><strong id="c-sugerido">—</strong></div>
+    <div><span>Margem no preço de venda</span><strong id="c-margem">—</strong></div>
+  </div>
+  <p class="dica">Custo = horas de impressão × R$ 2,00 + filamento + embalagem + acessórios. O cálculo é o mesmo que o sistema já fazia; aqui você vê o resultado antes de salvar.</p>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  const v = n => parseFloat((document.querySelector('[name=' + n + ']') || {}).value) || 0;
+  const brl = x => x.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  function calc() {
+    const custo = v('impressao') * 2 + v('filament') + v('embalagem') + v('acessorios');
+    const venda = v('vanda');
+    document.getElementById('c-custo').textContent = brl(custo);
+    document.getElementById('c-sugerido').textContent = brl(custo * 2);
+    document.getElementById('c-margem').textContent = venda ? Math.round((venda - custo) * 100 / venda) + '%' : '—';
+  }
+  document.querySelectorAll('.formulario input').forEach(i => i.addEventListener('input', calc));
+  calc();
+})();
+</script>
+{% endblock %}

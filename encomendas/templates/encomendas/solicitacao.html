@@ -1,0 +1,119 @@
+{% extends 'painel/base.html' %}
+{% load static painel_tags %}
+{% block titulo %}{{ s.numero }} · {{ s.titulo }}{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <div>
+    <p class="migalha"><a href="{% url 'encomendas:solicitacoes' %}">Solicitações</a> · {{ s.numero }}</p>
+    <h1>{{ s.titulo }}</h1>
+    <p class="sub">{{ s.nome_exibicao }}{% if s.telefone_exibicao %} · {{ s.telefone_exibicao }}{% endif %} · chegou por {{ s.get_canal_display }} em {{ s.criado_em|date:"d/m/Y" }}</p>
+  </div>
+  <div class="acoes">
+    {% if whatsapp %}<a class="botao whats" href="{{ whatsapp }}" target="_blank" rel="noopener">Abrir conversa</a>{% endif %}
+    <a class="botao" href="{% url 'encomendas:solicitacao_editar' s.pk %}">Editar</a>
+    <form method="post" action="{% url 'encomendas:solicitacao_acao' s.pk 'orcamento' %}">{% csrf_token %}
+      <button class="botao primario" type="submit">{% if orcamentos %}Novo orçamento{% else %}Criar orçamento{% endif %}</button></form>
+  </div>
+</div>
+
+<div class="etapas">
+  {% for v, n in situacoes %}
+    <form method="post" action="{% url 'encomendas:solicitacao_acao' s.pk 'status' %}">{% csrf_token %}
+      <input type="hidden" name="status" value="{{ v }}">
+      <button class="etapa {% if v == s.status %}atual{% endif %}" type="submit">{{ n }}</button></form>
+  {% endfor %}
+</div>
+
+<div class="duas-colunas largura-2-1">
+  <div>
+    <div class="cartao">
+      <h3 class="titulo-cartao">Fotos de referência <small class="muted">({{ imagens|length }})</small></h3>
+      {% if imagens %}
+        <div class="galeria" data-galeria>
+          {% for a in imagens %}
+            <figure>
+              <a href="{% url 'encomendas:arquivo' a.pk %}" data-foto><img src="{% url 'encomendas:arquivo_tipo' a.pk 'mini' %}" alt="{{ a.nome_original }}" loading="lazy"></a>
+              <figcaption>
+                <a href="{% url 'encomendas:arquivo' a.pk %}?baixar=1" title="Baixar">⬇</a>
+                <form method="post" action="{% url 'encomendas:solicitacao_acao' s.pk 'apagar-anexo' %}" onsubmit="return confirm('Apagar esta foto?')">{% csrf_token %}
+                  <input type="hidden" name="anexo" value="{{ a.pk }}"><button class="link perigo" type="submit" title="Apagar">×</button></form>
+              </figcaption>
+            </figure>
+          {% endfor %}
+        </div>
+      {% else %}<p class="muted">Nenhuma foto ainda.</p>{% endif %}
+      {% if arquivos %}
+        <h4 class="sub-titulo">Arquivos</h4>
+        <ul class="lista-arquivos">
+          {% for a in arquivos %}
+            <li><a href="{% url 'encomendas:arquivo' a.pk %}"><span class="etiqueta">{{ a.extensao }}</span> {{ a.nome_original }}</a>
+              <small class="muted">{{ a.tamanho|filesizeformat }}</small>
+              <form method="post" action="{% url 'encomendas:solicitacao_acao' s.pk 'apagar-anexo' %}" onsubmit="return confirm('Apagar este arquivo?')">{% csrf_token %}
+                <input type="hidden" name="anexo" value="{{ a.pk }}"><button class="link perigo" type="submit">apagar</button></form></li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+      <form method="post" enctype="multipart/form-data" action="{% url 'encomendas:solicitacao_acao' s.pk 'anexar' %}" class="anexar-rapido" data-auto-envio>
+        {% csrf_token %}{% include 'encomendas/parciais/zona_anexos.html' %}
+        <button class="botao" type="submit" data-enviar hidden>Enviar arquivos</button>
+      </form>
+    </div>
+
+    <div class="cartao">
+      <h3 class="titulo-cartao">Conversa e anotações</h3>
+      <form method="post" enctype="multipart/form-data" action="{% url 'encomendas:solicitacao_acao' s.pk 'anotar' %}" class="nova-nota">
+        {% csrf_token %}
+        <textarea class="campo" name="texto" rows="3" placeholder="Ex.: cliente pediu para aumentar 2 cm e trocar para azul"></textarea>
+        {% include 'encomendas/parciais/zona_anexos.html' %}
+        <div class="barra-botoes compacta"><button class="botao primario" type="submit">Adicionar anotação</button></div>
+      </form>
+      <ol class="linha-tempo">
+        {% for n in anotacoes %}
+          <li>
+            <div class="lt-topo"><b>{{ n.criado_em|date:"d/m/Y H:i" }}</b>{% if n.autor %} <span class="muted">· {{ n.autor }}</span>{% endif %}
+              <form method="post" action="{% url 'encomendas:solicitacao_acao' s.pk 'apagar-anotacao' %}" onsubmit="return confirm('Apagar esta anotação e os arquivos dela?')">{% csrf_token %}
+                <input type="hidden" name="anotacao" value="{{ n.pk }}"><button class="link perigo pequeno" type="submit">apagar</button></form></div>
+            {% if n.texto %}<p>{{ n.texto|linebreaksbr|urlize }}</p>{% endif %}
+            {% if n.anexos.all %}<div class="galeria pequena" data-galeria>
+              {% for a in n.anexos.all %}{% if a.e_imagem %}<a href="{% url 'encomendas:arquivo' a.pk %}" data-foto><img src="{% url 'encomendas:arquivo_tipo' a.pk 'mini' %}" alt="" loading="lazy"></a>
+              {% else %}<a class="arquivo-mini" href="{% url 'encomendas:arquivo' a.pk %}"><span class="etiqueta">{{ a.extensao }}</span> {{ a.nome_original|truncatechars:24 }}</a>{% endif %}{% endfor %}
+            </div>{% endif %}
+          </li>
+        {% empty %}
+          <li class="muted">Nenhuma anotação. Registre aqui o que o cliente for falando.</li>
+        {% endfor %}
+        <li class="lt-inicio"><b>{{ s.criado_em|date:"d/m/Y H:i" }}</b> <span class="muted">· solicitação registrada</span></li>
+      </ol>
+    </div>
+  </div>
+
+  <div>
+    <div class="cartao">
+      <h3 class="titulo-cartao">Detalhes</h3>
+      <dl class="ref-dados em-coluna">
+        <div><dt>Quantidade</dt><dd>{{ s.quantidade }}</dd></div>
+        {% if s.prazo %}<div><dt>Precisa até</dt><dd class="{% if s.dias_para_prazo < 7 %}negativo{% endif %}">{{ s.prazo|date:"d/m/Y" }}{% if s.dias_para_prazo >= 0 %} ({{ s.dias_para_prazo }} dia{{ s.dias_para_prazo|pluralize }}){% else %} (passou){% endif %}</dd></div>{% endif %}
+        {% if s.medidas %}<div><dt>Medidas</dt><dd>{{ s.medidas }}</dd></div>{% endif %}
+        {% if s.medidas_obs %}<div><dt>Obs. de medidas</dt><dd>{{ s.medidas_obs }}</dd></div>{% endif %}
+        {% if s.cores %}<div><dt>Cores</dt><dd>{{ s.cores }}</dd></div>{% endif %}
+        {% if s.material %}<div><dt>Material</dt><dd>{{ s.material }}</dd></div>{% endif %}
+        {% if s.verba %}<div><dt>Pretende gastar</dt><dd>{{ s.verba|brl }}</dd></div>{% endif %}
+      </dl>
+      {% if s.descricao %}<h4 class="sub-titulo">Descrição</h4><p class="texto-livre">{{ s.descricao|linebreaksbr|urlize }}</p>{% endif %}
+    </div>
+    {% if orcamentos %}
+    <div class="cartao">
+      <h3 class="titulo-cartao">Orçamentos</h3>
+      <ul class="lista-simples">
+        {% for o in orcamentos %}<li><a href="{% url 'encomendas:orcamento' o.pk %}">{{ o.numero }}</a>
+          <small><span class="selo selo-{{ o.status|lower }}">{{ o.get_status_display }}</span> {{ o.total|brl }}</small></li>{% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+    <form method="post" action="{% url 'encomendas:solicitacao_acao' s.pk 'apagar' %}" onsubmit="return confirm('Apagar a solicitação e TODAS as fotos dela?')">{% csrf_token %}
+      <button class="botao perigo largo" type="submit">Apagar solicitação</button></form>
+  </div>
+</div>
+{% include 'encomendas/parciais/visualizador.html' %}
+{% endblock %}
+{% block scripts %}<script src="{% static 'painel/js/anexos.js' %}"></script>{% endblock %}

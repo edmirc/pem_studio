@@ -1,0 +1,90 @@
+{% extends 'painel/base.html' %}
+{% load painel_tags %}
+{% block titulo %}Orçamento {{ o.numero }}{% endblock %}
+{% block conteudo %}
+<div class="cabecalho nao-imprimir">
+  <div>
+    <p class="migalha"><a href="{% url 'encomendas:orcamentos' %}">Orçamentos</a></p>
+    <h1>{{ o.numero }} <span class="selo selo-{{ o.status|lower }}">{{ o.get_status_display }}</span></h1>
+    <p class="sub">{{ o.nome_exibicao }}{% if o.telefone_exibicao %} · {{ o.telefone_exibicao }}{% endif %}</p>
+  </div>
+  <div class="acoes">
+    {% if pedido %}<a class="botao primario" href="{% url 'encomendas:pedido' pedido.pk %}">Ver pedido {{ pedido.numero }}</a>{% endif %}
+    {% if o.status != 'APROVADO' %}<a class="botao" href="{% url 'encomendas:orcamento_editar' o.pk %}">Editar</a>{% endif %}
+    <button class="botao" onclick="window.print()">Imprimir / PDF</button>
+  </div>
+</div>
+
+{% if o.status != 'APROVADO' %}
+<div class="cartao acoes-orc nao-imprimir">
+  <a class="botao whats" href="{{ whatsapp }}" target="_blank" rel="noopener"
+     {% if o.status == 'RASCUNHO' %}data-marcar="{% url 'encomendas:orcamento_acao' o.pk 'enviado' %}"{% endif %}>Enviar no WhatsApp</a>
+  <button class="botao" type="button" onclick="copiarTexto()">Copiar mensagem</button>
+  <form method="post" action="{% url 'encomendas:orcamento_acao' o.pk 'aprovar' %}">{% csrf_token %}
+    <button class="botao primario" type="submit">Cliente aprovou → criar pedido</button></form>
+  {% if o.status == 'RECUSADO' %}
+    <form method="post" action="{% url 'encomendas:orcamento_acao' o.pk 'reabrir' %}">{% csrf_token %}<button class="botao" type="submit">Reabrir</button></form>
+  {% else %}
+    <form method="post" action="{% url 'encomendas:orcamento_acao' o.pk 'recusado' %}">{% csrf_token %}<button class="botao" type="submit">Recusado</button></form>
+  {% endif %}
+  <form method="post" action="{% url 'encomendas:orcamento_acao' o.pk 'duplicar' %}">{% csrf_token %}<button class="botao" type="submit">Duplicar</button></form>
+  <form method="post" action="{% url 'encomendas:orcamento_acao' o.pk 'apagar' %}" onsubmit="return confirm('Apagar o orçamento {{ o.numero }}?')">{% csrf_token %}<button class="botao perigo" type="submit">Apagar</button></form>
+  {% if not o.telefone_exibicao %}<small class="muted">Sem telefone: o WhatsApp vai abrir para você escolher o contato.</small>{% endif %}
+</div>
+{% else %}
+<div class="cartao acoes-orc nao-imprimir">
+  <form method="post" action="{% url 'encomendas:orcamento_acao' o.pk 'duplicar' %}">{% csrf_token %}<button class="botao" type="submit">Duplicar como novo orçamento</button></form>
+</div>
+{% endif %}
+
+{% include 'encomendas/parciais/referencias.html' with sol=o.solicitacao %}
+<div class="cartao documento">
+  <div class="doc-topo">
+    <div><div class="marca grande">{{ cfg.nome_empresa }}</div>{% if cfg.telefone_empresa %}<small>{{ cfg.telefone_empresa }}</small>{% endif %}</div>
+    <div class="doc-num"><strong>Orçamento {{ o.numero }}</strong><small>Data: {{ o.data|date:"d/m/Y" }}</small>
+      {% if o.validade %}<small>Válido até: {{ o.validade|date:"d/m/Y" }}</small>{% endif %}</div>
+  </div>
+  <p><strong>Cliente:</strong> {{ o.nome_exibicao }}{% if o.telefone_exibicao %} · {{ o.telefone_exibicao }}{% endif %}</p>
+  <table class="tabela">
+    <thead><tr><th>Item</th><th class="num">Qtd.</th><th class="num">Unitário</th><th class="num">Total</th></tr></thead>
+    {% for i in itens %}<tr><td>{{ i.nome }}</td><td class="num">{{ i.qnt }}</td><td class="num">{{ i.preco_unitario|brl }}</td><td class="num">{{ i.total|brl }}</td></tr>{% endfor %}
+    {% if o.desconto or o.frete %}<tr><td colspan="3">Subtotal</td><td class="num">{{ o.subtotal|brl }}</td></tr>{% endif %}
+    {% if o.desconto %}<tr><td colspan="3">Desconto</td><td class="num">- {{ o.desconto|brl }}</td></tr>{% endif %}
+    {% if o.frete %}<tr><td colspan="3">Entrega</td><td class="num">{{ o.frete|brl }}</td></tr>{% endif %}
+    <tr class="total"><td colspan="3">Total (Pix ou dinheiro)</td><td class="num">{{ o.total|brl }}</td></tr>
+  </table>
+  <div class="duas-colunas doc-rodape">
+    <div>
+      <h4 class="sub-titulo">Condições</h4>
+      <ul class="lista-condicoes">
+        {% if o.sinal_percentual %}<li>Sinal de {{ o.sinal_percentual|floatformat:0 }}% para iniciar: <b>{{ o.valor_sinal|brl }}</b></li>{% endif %}
+        <li>Prazo de produção: {{ o.prazo_dias }} dias após o sinal</li>
+        {% if o.observacoes %}<li>{{ o.observacoes|linebreaksbr }}</li>{% endif %}
+      </ul>
+    </div>
+    <div>
+      <h4 class="sub-titulo">No cartão</h4>
+      <table class="tabela compacta">
+        {% for c in cartao %}{% if not forloop.first %}<tr><td>{{ c.nome }}</td><td class="num">{% if c.parcelas > 1 %}{{ c.parcelas }}× {{ c.parcela|brl }} = {% endif %}{{ c.total|brl }}</td></tr>{% endif %}{% endfor %}
+      </table>
+    </div>
+  </div>
+</div>
+{% include 'encomendas/parciais/visualizador.html' %}
+<textarea id="texto-whats" class="esconder">{{ texto }}</textarea>
+{% endblock %}
+{% block scripts %}
+{% load static %}<script src="{% static 'painel/js/anexos.js' %}"></script>
+<script>
+document.querySelectorAll('[data-marcar]').forEach(a => a.addEventListener('click', () => {
+  // marca como "Enviado" sem impedir que o WhatsApp abra
+  fetch(a.dataset.marcar, { method: 'POST', headers: { 'X-CSRFToken': '{{ csrf_token }}', 'HX-Request': 'true' } });
+}));
+function copiarTexto() {
+  const t = document.getElementById('texto-whats').value;
+  navigator.clipboard.writeText(t).then(() => {
+    const b = event.target; const o = b.textContent; b.textContent = 'Copiado!'; setTimeout(() => b.textContent = o, 1500);
+  });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,179 @@
+{% extends 'painel/base.html' %}
+{% load static painel_tags %}
+{% block titulo %}{% if tipo == 'pedido' %}Editar {{ obj.numero }}{% elif obj.pk %}Editar {{ obj.numero }}{% else %}Novo orçamento{% endif %}{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <div>
+    <p class="migalha">{% if tipo == 'pedido' %}<a href="{% url 'encomendas:pedido' obj.pk %}">Pedido {{ obj.numero }}</a>{% else %}<a href="{% url 'encomendas:orcamentos' %}">Orçamentos</a>{% endif %}</p>
+    <h1>{% if tipo == 'pedido' %}Editar pedido {{ obj.numero }}{% elif obj.pk %}Editar orçamento {{ obj.numero }}{% else %}Novo orçamento{% endif %}</h1>
+  </div>
+</div>
+
+{% if tipo == 'pedido' %}{% include 'encomendas/parciais/referencias.html' with sol=obj.orcamento.solicitacao %}{% else %}{% include 'encomendas/parciais/referencias.html' with sol=obj.solicitacao %}{% endif %}
+<form method="post" novalidate id="form-itens">
+  {% csrf_token %}
+  {{ itens.management_form }}
+  {% if form.non_field_errors %}<div class="aviso error">{{ form.non_field_errors|join:" " }}</div>{% endif %}
+
+  <div class="cartao formulario largo">
+    <h3 class="titulo-cartao">{% if tipo == 'pedido' %}Pedido{% else %}Cliente e condições{% endif %}</h3>
+    <div class="grade-campos">
+      {% for campo in form %}{% if campo.name != 'observacoes' %}
+        <div class="grupo-campo {% if campo.errors %}com-erro{% endif %}" id="g-{{ campo.name }}">
+          <label for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+          {{ campo }}
+          {% if campo.help_text %}<small class="muted">{{ campo.help_text }}</small>{% endif %}
+          {% for e in campo.errors %}<small class="erro">{{ e }}</small>{% endfor %}
+        </div>
+      {% endif %}{% endfor %}
+    </div>
+  </div>
+
+  <div class="cartao formulario largo">
+    <h3 class="titulo-cartao">Itens</h3>
+    <div class="itens" id="itens">
+      <div class="item-cab"><span>Produto</span><span>Descrição</span><span>Qtd.</span><span>Preço unit.</span><span class="num">Total</span><span></span></div>
+      {% for f in itens %}{% include 'encomendas/parciais/item_linha.html' with f=f %}{% endfor %}
+    </div>
+    <template id="modelo-item">{% include 'encomendas/parciais/item_linha.html' with f=itens.empty_form %}</template>
+    <div class="acoes" style="margin-top:12px">
+      <button type="button" class="botao" id="add-item">+ Item do catálogo</button>
+      <button type="button" class="botao" id="add-calc">🧮 Peça personalizada (calcular)</button>
+    </div>
+
+    <div class="totais-orc">
+      <div><span>Subtotal</span><b id="t-sub">R$ 0,00</b></div>
+      <div><span>Desconto</span><b id="t-desc">R$ 0,00</b></div>
+      <div><span>Frete</span><b id="t-frete">R$ 0,00</b></div>
+      <div class="grande"><span>Total</span><b id="t-total">R$ 0,00</b></div>
+      {% if tipo == 'orcamento' %}<div><span>Sinal</span><b id="t-sinal">R$ 0,00</b></div>{% endif %}
+    </div>
+
+    <div class="grupo-campo" style="margin-top:16px">
+      <label for="{{ form.observacoes.id_for_label }}">{{ form.observacoes.label }}</label>{{ form.observacoes }}
+      {% if tipo == 'orcamento' %}<small class="muted">Aparece no final da mensagem do WhatsApp.</small>{% endif %}
+    </div>
+
+    <div class="barra-botoes">
+      <a class="botao" href="{% if tipo == 'pedido' %}{% url 'encomendas:pedido' obj.pk %}{% elif obj.pk %}{% url 'encomendas:orcamento' obj.pk %}{% else %}{% url 'encomendas:orcamentos' %}{% endif %}">Cancelar</a>
+      {% if tipo == 'orcamento' and obj.status != 'APROVADO' %}<button class="botao" type="submit" name="aprovar">Salvar e aprovar (vira pedido)</button>{% endif %}
+      <button class="botao primario" type="submit">Salvar</button>
+    </div>
+  </div>
+</form>
+
+<dialog id="janela-calc" class="janela janela-larga">
+  <div class="janela-topo"><h2>Calcular preço da peça</h2>
+    <button type="button" class="botao icone" onclick="document.getElementById('janela-calc').close()" aria-label="Fechar">×</button></div>
+  {% include 'encomendas/parciais/calculadora.html' with calc_id='calc-dialog' %}
+  <div class="barra-botoes">
+    <button type="button" class="botao" onclick="document.getElementById('janela-calc').close()">Cancelar</button>
+    <button type="button" class="botao primario" id="usar-calc">Usar este preço</button>
+  </div>
+</dialog>
+{% include 'encomendas/parciais/visualizador.html' %}
+{{ precos|json_script:"precos" }}
+{{ dados|json_script:"dados-calc" }}
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'painel/js/calculadora.js' %}"></script>
+<script src="{% static 'painel/js/anexos.js' %}"></script>
+<script>
+(function () {
+  const precos = JSON.parse(document.getElementById('precos').textContent);
+  const calc = new Calculadora(document.getElementById('calc-dialog'), JSON.parse(document.getElementById('dados-calc').textContent));
+  const janela = document.getElementById('janela-calc');
+  const lista = document.getElementById('itens');
+  const total = document.getElementById('id_TOTAL_FORMS') || document.querySelector('[name=itens-TOTAL_FORMS]');
+  const brl = v => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const n = v => { const x = parseFloat(String(v || '').replace(',', '.')); return Number.isFinite(x) ? x : 0; };
+  const campo = (linha, f) => linha.querySelector(`[data-f=${f}]`);
+  let linhaCalc = null;
+
+  function novaLinha() {
+    const i = parseInt(total.value, 10);
+    const html = document.getElementById('modelo-item').innerHTML.replace(/__prefix__/g, i);
+    lista.insertAdjacentHTML('beforeend', html);
+    total.value = i + 1;
+    return lista.lastElementChild;
+  }
+
+  function somar() {
+    let sub = 0;
+    lista.querySelectorAll('.item-linha').forEach(l => {
+      const apagado = l.querySelector('[name$=DELETE]');
+      const t = apagado && apagado.checked ? 0 : n(campo(l, 'qnt').value) * n(campo(l, 'preco').value);
+      l.querySelector('.item-total').textContent = brl(t);
+      const calcJson = campo(l, 'calculo').value;
+      l.querySelector('[data-a=calc]').classList.toggle('tem-calc', !!calcJson && calcJson !== 'null');
+      sub += t;
+    });
+    const desc = n(document.getElementById('id_desconto').value);
+    const frete = n(document.getElementById('id_frete').value);
+    const tot = Math.max(0, sub - desc + frete);
+    document.getElementById('t-sub').textContent = brl(sub);
+    document.getElementById('t-desc').textContent = '- ' + brl(desc);
+    document.getElementById('t-frete').textContent = brl(frete);
+    document.getElementById('t-total').textContent = brl(tot);
+    const sinal = document.getElementById('t-sinal');
+    if (sinal) sinal.textContent = brl(tot * n(document.getElementById('id_sinal_percentual').value) / 100);
+  }
+
+  document.getElementById('add-item').addEventListener('click', () => { campo(novaLinha(), 'produto').focus(); somar(); });
+  document.getElementById('add-calc').addEventListener('click', () => { linhaCalc = null; calc.limpar(); janela.showModal(); });
+
+  lista.addEventListener('change', e => {
+    const l = e.target.closest('.item-linha');
+    if (e.target.matches('[data-f=produto]')) {
+      const p = precos[e.target.value];
+      if (p) campo(l, 'preco').value = parseFloat(p).toFixed(2);
+    }
+    somar();
+  });
+  lista.addEventListener('input', somar);
+  lista.addEventListener('click', e => {
+    const l = e.target.closest('.item-linha');
+    if (e.target.closest('[data-a=remover]')) {
+      const del = l.querySelector('[name$=DELETE]');
+      if (l.querySelector('[name$="-id"]') && l.querySelector('[name$="-id"]').value) { del.checked = true; l.hidden = true; }
+      else l.remove();
+      somar();
+    }
+    if (e.target.closest('[data-a=calc]')) {
+      linhaCalc = l;
+      let dados = null;
+      try { dados = JSON.parse(campo(l, 'calculo').value || 'null'); } catch (_) {}
+      calc.carregar(dados);
+      if (!dados) calc.set('nome', campo(l, 'descricao').value);
+      janela.showModal();
+    }
+  });
+
+  document.getElementById('usar-calc').addEventListener('click', () => {
+    const r = calc.resultado();
+    if (!r.custo_peca) { calc.$('[data-c=horas]').focus(); return; }
+    const l = linhaCalc || novaLinha();
+    campo(l, 'preco').value = r.preco_peca.toFixed(2);
+    campo(l, 'calculo').value = JSON.stringify(r);
+    if (!campo(l, 'descricao').value) campo(l, 'descricao').value = r.nome || 'Peça personalizada';
+    if (!linhaCalc) campo(l, 'qnt').value = r.pecas;
+    janela.close();
+    somar();
+  });
+
+  ['id_desconto', 'id_frete', 'id_sinal_percentual'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.addEventListener('input', somar);
+  });
+
+  // cliente cadastrado x cliente novo
+  const cli = document.getElementById('id_cliente');
+  if (cli && document.getElementById('g-nome_cliente')) {
+    const alternar = () => ['g-nome_cliente', 'g-telefone'].forEach(g => document.getElementById(g).hidden = !!cli.value);
+    cli.addEventListener('change', alternar); alternar();
+  }
+  if (!lista.querySelector('.item-linha')) novaLinha();
+  somar();
+})();
+</script>
+{% endblock %}

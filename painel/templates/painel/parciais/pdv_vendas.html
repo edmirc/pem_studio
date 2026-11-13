@@ -1,0 +1,27 @@
+{% load painel_tags %}
+<div id="vendas">
+  <div class="cartao total-feira">
+    <span>Total da feira</span>
+    <strong>{{ total_geral|brl }}</strong>
+    <small>{{ vendas|length }} venda{{ vendas|length|pluralize }} · {{ itens }} ite{{ itens|pluralize:"m,ns" }}</small>
+    <div class="totais-pag">
+      {% for t in totais %}<div><span>{{ t.nome }}</span><b>{{ t.total|brl }}</b></div>{% endfor %}
+    </div>
+  </div>
+  <div class="cartao">
+    <h3 class="titulo-cartao">Vendas registradas</h3>
+    <ul class="lista-vendas">
+      {% for v in vendas %}
+        <li>
+          <div><strong>{{ v.qnt }}× {{ v.product }}</strong><small>{{ v.get_pagment_display }}{% if v.qnt > 1 %} · {{ v.unitario|brl }} cada{% endif %}</small></div>
+          <span class="num">{{ v.value|brl }}</span>
+          <button class="botao icone perigo" title="Apagar"
+                  hx-post="{% url 'painel:pdv_apagar' feira.pk v.pk %}" hx-target="#vendas" hx-swap="outerHTML"
+                  hx-confirm="Apagar {{ v.qnt }}× {{ v.product }} ({{ v.value|brl }})?">×</button>
+        </li>
+      {% empty %}
+        <li class="vazio">Toque em um produto para registrar a primeira venda.</li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>

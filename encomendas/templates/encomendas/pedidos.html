@@ -1,0 +1,48 @@
+{% extends 'painel/base.html' %}
+{% load painel_tags %}
+{% block titulo %}Pedidos{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <div><p class="migalha">Encomendas</p><h1>Pedidos em produção</h1>
+    {% if atrasados %}<p class="sub negativo">{{ atrasados }} pedido{{ atrasados|pluralize }} atrasado{{ atrasados|pluralize }}</p>{% endif %}</div>
+  <div class="acoes">
+    <a class="botao" href="{% url 'encomendas:pedidos_historico' %}">Todos os pedidos</a>
+    <a class="botao primario" href="{% url 'encomendas:orcamento_novo' %}">+ Novo orçamento</a>
+  </div>
+</div>
+<div class="quadro">
+  {% for col in colunas %}
+  <section class="coluna">
+    <h3>{{ col.nome }} <span>{{ col.pedidos|length }}</span></h3>
+    {% for p in col.pedidos %}
+      <article class="cartao-pedido {% if p.atrasado %}atrasado{% elif p.dias_para_prazo <= 2 %}urgente{% endif %}">
+        {% with c=p.orcamento.solicitacao.capa %}{% if c %}<a href="{% url 'encomendas:pedido' p.pk %}"><img class="cp-capa" src="{% url 'encomendas:arquivo_tipo' c.pk 'mini' %}" alt="" loading="lazy"></a>{% endif %}{% endwith %}
+        <a href="{% url 'encomendas:pedido' p.pk %}" class="cp-topo"><strong>{{ p.cliente }}</strong><small>{{ p.numero }}</small></a>
+        <ul>{% for i in p.itens.all|slice:":3" %}<li>{{ i.qnt }}× {{ i.nome }}</li>{% endfor %}{% if p.itens.all|length > 3 %}<li class="muted">+ {{ p.itens.all|length|add:-3 }} ite{{ p.itens.all|length|add:-3|pluralize:"m,ns" }}</li>{% endif %}</ul>
+        <div class="cp-info">
+          <span class="prazo">{% if p.atrasado %}Atrasado {{ p.dias_atraso }} dia{{ p.dias_atraso|pluralize }}{% elif p.dias_para_prazo == 0 %}Entrega hoje{% elif p.dias_para_prazo == 1 %}Amanhã{% else %}{{ p.prazo|date:"d/m" }}{% endif %}</span>
+          <span>{% if p.falta_receber %}falta {{ p.falta_receber|brl }}{% else %}pago{% endif %}</span>
+        </div>
+        {% if not p.sinal_recebido and p.sinal_combinado %}<div class="cp-alerta">Sinal de {{ p.sinal_combinado|brl }} não registrado</div>{% endif %}
+        {% if p.proxima_etapa %}
+        <form method="post" action="{% url 'encomendas:pedido_acao' p.pk 'etapa' %}">{% csrf_token %}
+          <input type="hidden" name="status" value="{{ p.proxima_etapa }}"><input type="hidden" name="voltar" value="quadro">
+          <button class="botao pequeno largo" type="submit">Mover para {{ p.proxima_etapa.label }} →</button>
+        </form>
+        {% else %}
+          <a class="botao pequeno largo primario" href="{% url 'encomendas:pedido' p.pk %}#entregar">Entregar</a>
+        {% endif %}
+      </article>
+    {% empty %}<p class="vazio pequeno">Nenhum pedido</p>{% endfor %}
+  </section>
+  {% endfor %}
+</div>
+{% if entregues %}
+<div class="cartao tabela-rolavel">
+  <h3 class="titulo-cartao">Entregues nos últimos 30 dias</h3>
+  <table class="tabela">
+    {% for p in entregues %}<tr><td><a href="{% url 'encomendas:pedido' p.pk %}">{{ p.numero }}</a></td><td>{{ p.cliente }}</td><td>{{ p.entregue_em|date:"d/m/Y" }}</td><td class="num">{{ p.total|brl }}</td></tr>{% endfor %}
+  </table>
+</div>
+{% endif %}
+{% endblock %}

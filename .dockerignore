@@ -1,0 +1,17 @@
+.git
+.env
+venv
+.venv
+**/__pycache__
+*.pyc
+staticfiles
+db.sqlite3
+teste.sqlite3
+core/settings_teste.py
+banco de dados
+*.CSV
+*.csv
+requeriments.txt
+backups
+instalar-docker.sh
+media

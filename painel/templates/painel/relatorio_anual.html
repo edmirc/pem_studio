@@ -1,0 +1,55 @@
+{% extends 'painel/base.html' %}
+{% load static painel_tags %}
+{% block titulo %}Relatório anual {{ ano }}{% endblock %}
+{% block head %}<script src="{% static 'painel/js/chart.umd.min.js' %}" defer></script>{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <div><p class="migalha">Relatório anual</p><h1>{{ ano }}</h1></div>
+  <div class="acoes nao-imprimir">
+    <a class="botao icone" href="?ano={{ ano|add:-1 }}">‹</a>
+    <a class="botao icone" href="?ano={{ ano|add:1 }}">›</a>
+    <button type="button" class="botao primario" onclick="window.print()">Imprimir / PDF</button>
+  </div>
+</div>
+
+<div class="kpis">
+  <div class="cartao kpi"><span>Faturamento no ano</span><strong>{{ t.receita|brl }}</strong></div>
+  <div class="cartao kpi"><span>Compras e despesas</span><strong>{{ t.despesas|brl }}</strong></div>
+  <div class="cartao kpi"><span>Resultado</span><strong class="{% if t.resultado < 0 %}negativo{% else %}positivo{% endif %}">{{ t.resultado|brl }}</strong></div>
+  <div class="cartao kpi"><span>Itens vendidos</span><strong>{{ t.itens }}</strong></div>
+</div>
+
+<div class="cartao">
+  <h3 class="titulo-cartao">Mês a mês</h3>
+  <div class="grafico"><canvas id="g-ano"></canvas></div>
+</div>
+
+<div class="cartao tabela-rolavel">
+  <table class="tabela">
+    <thead><tr><th>Mês</th><th class="num">Feiras</th><th class="num">Diretas</th><th class="num">Faturamento</th>
+      <th class="num">Filamento</th><th class="num">Insumos</th><th class="num">Outras</th><th class="num">Despesas</th><th class="num">Resultado</th></tr></thead>
+    {% for m in meses %}
+      <tr><td><a href="{% url 'painel:relatorio_mensal' %}?mes={{ m.link }}">{{ m.nome }}</a></td>
+        <td class="num">{{ m.receita_feiras|brl }}</td><td class="num">{{ m.receita_internas|brl }}</td><td class="num"><b>{{ m.receita|brl }}</b></td>
+        <td class="num">{{ m.desp_filamento|brl }}</td><td class="num">{{ m.desp_insumos|brl }}</td><td class="num">{{ m.desp_outras|brl }}</td>
+        <td class="num"><b>{{ m.despesas|brl }}</b></td><td class="num {% if m.resultado < 0 %}negativo{% endif %}"><b>{{ m.resultado|brl }}</b></td></tr>
+    {% endfor %}
+    <tr class="total"><td>Total</td><td class="num">{{ t.receita_feiras|brl }}</td><td class="num">{{ t.receita_internas|brl }}</td><td class="num">{{ t.receita|brl }}</td>
+      <td class="num">{{ t.desp_filamento|brl }}</td><td class="num">{{ t.desp_insumos|brl }}</td><td class="num">{{ t.desp_outras|brl }}</td>
+      <td class="num">{{ t.despesas|brl }}</td><td class="num">{{ t.resultado|brl }}</td></tr>
+  </table>
+</div>
+{{ grafico|json_script:"dados-grafico" }}
+{% endblock %}
+{% block scripts %}
+<script src="{% static 'painel/js/graficos.js' %}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const d = JSON.parse(document.getElementById('dados-grafico').textContent);
+  graficoBarras('g-ano', d.rotulos, [
+    { label: 'Faturamento', data: d.receita, cor: 'receita' },
+    { label: 'Despesas', data: d.despesas, cor: 'despesa' },
+  ], d.resultado);
+});
+</script>
+{% endblock %}

@@ -63,6 +63,10 @@ class Filment(models.Model):
      class Meta:
           verbose_name = "FilamentoS"
           verbose_name_plural ="Filamentos"
+          ordering = ('name', 'color')
+
+     def __str__(self):
+          return f'{self.name} ({self.filamentBrand})'
 
 
 class CadFeiras(models.Model):
@@ -121,3 +125,29 @@ class Contas(models.Model):
         verbose_name_plural = 'Contas Bancarias'
         ordering = ('apelido',)
 
+
+
+class UnidadeMedida(models.TextChoices):
+    UNIDADE = 'UN', 'Unidade'
+    PACOTE = 'PCT', 'Pacote'
+    METRO = 'M', 'Metro'
+    QUILO = 'KG', 'Quilo'
+    GRAMA = 'G', 'Grama'
+    LITRO = 'L', 'Litro'
+    ROLO = 'RL', 'Rolo'
+
+
+class Insumo(models.Model):
+    """Materiais gerais: embalagens, ímãs, argolas, tinta, cola, etc."""
+    id = models.BigAutoField(primary_key=True, verbose_name="ID")
+    name = models.CharField(max_length=200, unique=True, verbose_name="Insumo")
+    unidade = models.CharField(max_length=5, choices=UnidadeMedida.choices, default=UnidadeMedida.UNIDADE, verbose_name="Unidade")
+    observacao = models.CharField(max_length=300, null=True, blank=True, verbose_name="Observação")
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        verbose_name = "Insumo"
+        verbose_name_plural = "Insumos"
+        ordering = ('name',)

@@ -1,0 +1,36 @@
+# PEM Studio - aplicação Django
+#
+#   docker compose up -d --build     # sobe / atualiza
+#   docker compose logs -f           # acompanha os logs
+#   docker compose exec web python manage.py migrate
+#   docker compose exec web python manage.py createsuperuser
+#
+# O MySQL roda em outro container nesta mesma máquina. O app entra na
+# mesma rede Docker dele e o acessa pelo nome (DB_HOST no .env).
+
+services:
+  web:
+    build: .
+    image: pem-studio:latest
+    container_name: pem-studio
+    restart: unless-stopped
+    env_file: .env
+    # roda com o mesmo dono da pasta de imagens (o script ajusta no .env)
+    user: "${UID_APP:-1000}:${GID_APP:-1000}"
+    ports:
+      - "${PORTA:-8001}:8000"
+    volumes:
+      # fotos e arquivos das solicitações ficam no HD externo, fora do projeto
+      - "${PASTA_IMAGENS:-/mnt/hd4t/imagens_pem_studio}:/app/media"
+    networks:
+      - banco
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/entrar/', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  banco:
+    external: true
+    name: ${REDE_BANCO:-pem-rede}

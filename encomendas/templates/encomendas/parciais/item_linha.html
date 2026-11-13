@@ -1,0 +1,13 @@
+<div class="item-linha {% if f.errors %}com-erro{% endif %}">
+  {{ f.id }}{{ f.calculo }}
+  <span class="esconder">{{ f.DELETE }}</span>
+  <div class="c-prod">{{ f.produto }}</div>
+  <div class="c-desc">{{ f.descricao }}{% for e in f.descricao.errors %}<small class="erro">{{ e }}</small>{% endfor %}</div>
+  <div class="c-qnt">{{ f.qnt }}</div>
+  <div class="c-preco">{{ f.preco_unitario }}</div>
+  <div class="item-total num">R$ 0,00</div>
+  <div class="c-acoes">
+    <button type="button" class="botao icone" data-a="calc" title="Calcular preço">🧮</button>
+    <button type="button" class="botao icone perigo" data-a="remover" title="Remover">×</button>
+  </div>
+</div>

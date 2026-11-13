@@ -1,0 +1,36 @@
+{% extends 'painel/base.html' %}
+{% load painel_tags %}
+{% block titulo %}Solicitações{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <div><p class="migalha">Encomendas</p><h1>Solicitações</h1>
+    <p class="sub">Pedidos de peça personalizada antes do orçamento: fotos, medidas e conversa com o cliente.</p></div>
+  <div class="acoes"><a class="botao primario" href="{% url 'encomendas:solicitacao_nova' %}">+ Nova solicitação</a></div>
+</div>
+<div class="chips-filtro">
+  <a class="chip {% if status == 'abertas' %}ativo{% endif %}" href="?status=abertas">Em aberto <b>{{ abertas }}</b></a>
+  {% for v, n in situacoes %}<a class="chip {% if status == v %}ativo{% endif %}" href="?status={{ v }}">{{ n }} <b>{{ contagem|get_item:v|default:0 }}</b></a>{% endfor %}
+  <a class="chip {% if status == 'todas' %}ativo{% endif %}" href="?status=todas">Todas</a>
+  <form method="get" class="busca-inline"><input type="hidden" name="status" value="{{ status }}">
+    <input class="campo" type="search" name="q" value="{{ q }}" placeholder="Buscar…"></form>
+</div>
+<div class="grade-solicitacoes">
+  {% for s in lista %}
+    <a class="cartao sol-card" href="{% url 'encomendas:solicitacao' s.pk %}">
+      <div class="sol-capa">{% with c=s.capa %}{% if c %}<img src="{% url 'encomendas:arquivo_tipo' c.pk 'mini' %}" alt="" loading="lazy">{% else %}<span>sem foto</span>{% endif %}{% endwith %}
+        {% if s.n_anexos > 1 %}<em>{{ s.n_anexos }} arquivos</em>{% endif %}</div>
+      <div class="sol-corpo">
+        <div class="sol-topo"><span class="selo selo-{{ s.status|lower }}">{{ s.get_status_display }}</span><small>{{ s.numero }}</small></div>
+        <strong>{{ s.titulo }}</strong>
+        <span class="muted">{{ s.nome_exibicao }} · {{ s.get_canal_display }}</span>
+        <span class="sol-rodape">
+          <small>{{ s.criado_em|date:"d/m" }}</small>
+          {% if s.prazo %}<small class="{% if s.dias_para_prazo is not None and s.dias_para_prazo < 7 %}negativo{% endif %}">precisa até {{ s.prazo|date:"d/m" }}</small>{% endif %}
+        </span>
+      </div>
+    </a>
+  {% empty %}
+    <div class="cartao vazio">Nenhuma solicitação aqui. <a href="{% url 'encomendas:solicitacao_nova' %}">Registrar a primeira</a>.</div>
+  {% endfor %}
+</div>
+{% endblock %}

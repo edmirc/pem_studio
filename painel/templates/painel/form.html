@@ -1,0 +1,34 @@
+{% extends 'painel/base.html' %}
+{% block titulo %}{% if obj %}Editar{% else %}{{ cfg.novo }}{% endif %} {{ cfg.singular }}{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <div>
+    <p class="migalha"><a href="{% url 'painel:lista' cfg.slug %}">{{ cfg.titulo }}</a></p>
+    <h1>{% if obj %}Editar {{ cfg.singular }}{% else %}{{ cfg.novo }} {{ cfg.singular }}{% endif %}</h1>
+  </div>
+</div>
+
+<form method="post" class="cartao formulario" novalidate>
+  {% csrf_token %}
+  <input type="hidden" name="proximo" value="{{ proximo }}">
+  {% if form.non_field_errors %}<div class="aviso error">{{ form.non_field_errors|join:" " }}</div>{% endif %}
+  <div class="grade-campos">
+    {% for campo in form %}
+      <div class="grupo-campo {% if campo.errors %}com-erro{% endif %}" id="g-{{ campo.name }}">
+        <label for="{{ campo.id_for_label }}">{{ campo.label }}{% if campo.field.required %} <span class="obrig">*</span>{% endif %}</label>
+        {{ campo }}
+        {% for e in campo.errors %}<small class="erro">{{ e }}</small>{% endfor %}
+      </div>
+    {% endfor %}
+  </div>
+  {% block extra_form %}{% endblock %}
+  {% if fornecedores %}
+    <datalist id="lista-fornecedores">{% for f in fornecedores %}<option value="{{ f }}">{% endfor %}</datalist>
+  {% endif %}
+  <div class="barra-botoes">
+    <a class="botao" href="{% if proximo %}{{ proximo }}{% else %}{% url 'painel:lista' cfg.slug %}{% endif %}">Cancelar</a>
+    {% if not obj %}<button class="botao" type="submit" name="salvar_e_novo">Salvar e cadastrar outro</button>{% endif %}
+    <button class="botao primario" type="submit">Salvar</button>
+  </div>
+</form>
+{% endblock %}
