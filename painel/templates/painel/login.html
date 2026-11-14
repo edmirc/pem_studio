@@ -11,7 +11,8 @@
   <form method="post" class="caixa-login">
     {% csrf_token %}
     <div class="marca grande">PEM <span>Studio</span></div>
-    {% if form.errors %}<div class="aviso error">Usuário ou senha incorretos.</div>{% endif %}
+    {% if bloqueado %}<div class="aviso error">Muitas tentativas erradas. Por segurança, o acesso foi bloqueado por {{ minutos_bloqueio }} minutos.</div>
+    {% elif form.errors %}<div class="aviso error">Usuário ou senha incorretos.</div>{% endif %}
     <label>Usuário <input class="campo" type="text" name="username" autofocus autocapitalize="none" required></label>
     <label>Senha <input class="campo" type="password" name="password" required></label>
     <input type="hidden" name="next" value="{{ next }}">

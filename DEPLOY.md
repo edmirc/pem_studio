@@ -89,3 +89,17 @@ Esses arquivos **não** entram no backup do banco; copie a pasta junto se for fa
 ```bash
 docker exec -i <container-mysql> sh -c 'mysql -u root -p"$MYSQL_ROOT_PASSWORD" pem_studio' < ~/backup_pem_AAAA-MM-DD_HHMM.sql
 ```
+
+## Acesso pela internet (VPS da Hostinger)
+
+A VPS é só a porta de entrada: o site da empresa fica nela, e o sistema continua aqui em casa.
+
+    https://pemstudio.com.br          site (arquivos na VPS)
+    https://sistema.pemstudio.com.br  sistema (VPS -> Tailscale -> este servidor, porta 8001)
+
+Na VPS, como root, com as pastas `vps/` e `site/` enviadas juntas:
+
+    bash vps/configurar-vps.sh
+
+DNS (Registro.br): registros **A** de `pemstudio.com.br`, `www` e `sistema` apontando para o IP da VPS.
+O login tem trava: 5 senhas erradas do mesmo endereço (ou 15 no mesmo usuário) bloqueiam por 15 minutos.

@@ -50,6 +50,11 @@ DEBUG = os.environ.get('DJANGO_DEBUG', '0').lower() in ('1', 'true', 'sim')
 ALLOWED_HOSTS = _lista('DJANGO_ALLOWED_HOSTS', '127.0.0.1,localhost')
 CSRF_TRUSTED_ORIGINS = _lista('DJANGO_CSRF_TRUSTED_ORIGINS')
 
+# Endereço público (via VPS/Caddy com HTTPS), ex.: sistema.pemstudio.com.br
+for _dom in _lista('DJANGO_DOMINIO_EXTERNO'):
+    ALLOWED_HOSTS.append(_dom)
+    CSRF_TRUSTED_ORIGINS.append(f'https://{_dom}')
+
 
 # Application definition
 
@@ -175,3 +180,16 @@ LOGOUT_REDIRECT_URL = 'login'
 
 # Atrás de um proxy (nginx, Tailscale serve etc.)
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# Cache em arquivo: compartilhado entre os processos do gunicorn (usado na trava de login)
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+        'LOCATION': os.environ.get('CACHE_DIR', os.path.join('/tmp', 'pem_cache')),
+    }
+}
+
+# Trava contra tentativas de senha
+LOGIN_MAX_TENTATIVAS_IP = 5        # erros seguidos do mesmo endereço
+LOGIN_MAX_TENTATIVAS_USUARIO = 15  # erros no mesmo usuário, vindo de qualquer lugar
+LOGIN_BLOQUEIO_MINUTOS = 15

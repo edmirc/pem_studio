@@ -87,6 +87,11 @@ else
   definir DB_HOST "$MYSQL_C"
   verde ".env já existe, mantido (DB_HOST=$MYSQL_C)"
 fi
+# endereço público (VPS): acrescenta se ainda não existir
+if [ -z "$(ler DJANGO_DOMINIO_EXTERNO)" ]; then
+  definir DJANGO_DOMINIO_EXTERNO "sistema.pemstudio.com.br"
+  verde "Endereço público liberado: sistema.pemstudio.com.br"
+fi
 DB_NAME="$(ler DB_NAME)"; DB_USER="$(ler DB_USER)"; DB_PASSWORD="$(ler DB_PASSWORD)"
 PORTA="$(ler PORTA)"; PORTA="${PORTA:-8001}"
 REDE_BANCO="$(ler REDE_BANCO)"; REDE_BANCO="${REDE_BANCO:-pem-rede}"

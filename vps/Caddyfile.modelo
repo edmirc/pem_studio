@@ -1,0 +1,48 @@
+# PEM Studio — gerado pelo configurar-vps.sh (as alterações feitas aqui à mão são substituídas
+# se o script for rodado de novo; para mudar algo, edite o Caddyfile.modelo).
+{
+	{{EMAIL_LINHA}}
+}
+
+# ---------------- Site da empresa ----------------
+{{SITE}} {
+	root * /var/www/pemstudio
+	encode zstd gzip
+	file_server
+	@estaticos path /css/* /js/* /img/* /fonts/*
+	header @estaticos Cache-Control "public, max-age=604800"
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+}
+
+{{WWW}} {
+	redir {{SITE_URL}}{uri} permanent
+}
+
+# ---------------- Sistema (fica no servidor de casa, via Tailscale) ----------------
+{{SISTEMA}} {
+	encode zstd gzip
+	request_body {
+		max_size 200MB
+	}
+	reverse_proxy {{CASA}} {
+		transport http {
+			dial_timeout 5s
+			response_header_timeout 180s
+		}
+	}
+	handle_errors {
+		@fora_do_ar expression `{err.status_code} in [502, 503, 504]`
+		header @fora_do_ar Content-Type "text/html; charset=utf-8"
+		respond @fora_do_ar `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PEM Studio</title><body style="font-family:system-ui,sans-serif;background:#F5F2EB;color:#4B4F4D;display:grid;place-items:center;min-height:90vh;margin:0;text-align:center;padding:20px"><div><h1 style="font-size:1.4rem">O sistema está fora do ar no momento</h1><p>O servidor da loja pode estar desligado ou sem internet. Tente de novo em alguns minutos.</p></div>` 502
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		-Server
+	}
+}
