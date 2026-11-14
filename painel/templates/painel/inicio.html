@@ -21,13 +21,21 @@
     {% if var_despesas is not None %}<small class="muted">{% if var_despesas >= 0 %}▲{% else %}▼{% endif %} {{ var_despesas }}% vs. mês anterior</small>{% endif %}
   </div>
   <div class="cartao kpi">
-    <span>Resultado</span><strong class="{% if r.resultado < 0 %}negativo{% endif %}">{{ r.resultado|brl }}</strong>
-    <small class="muted">faturamento − despesas</small>
+    <span>Lucro</span><strong class="{% if r.resultado < 0 %}negativo{% endif %}">{{ r.resultado|brl }}</strong>
+    <small class="muted">faturamento − despesas e taxas</small>
   </div>
   <div class="cartao kpi">
     <span>Itens vendidos</span><strong>{{ r.itens }}</strong>
     <small class="muted">ticket médio {{ r.ticket|brl }}</small>
   </div>
+</div>
+
+<div class="faixa-fin">
+  {% if fin.atrasado_n %}<a class="cartao fin-item alerta" href="{% url 'financas:contas' %}?tipo=PAGAR&periodo=atrasadas"><b>{{ fin.atrasado|brl }}</b> em {{ fin.atrasado_n }} conta{{ fin.atrasado_n|pluralize }} atrasada{{ fin.atrasado_n|pluralize }}</a>{% endif %}
+  <a class="cartao fin-item" href="{% url 'financas:contas' %}?tipo=PAGAR&periodo=7dias"><b>{{ fin.semana|brl }}</b> a pagar nos próximos 7 dias{% if fin.semana_n %} ({{ fin.semana_n }}){% endif %}</a>
+  <a class="cartao fin-item mei {{ mei.nivel }}" href="{% url 'painel:relatorio_anual' %}"><span>Limite do MEI {{ mei.ano }}: <b>{{ mei.pct|stringformat:'s'|slice:':5' }}%</b> usado</span>
+    <span class="barra-mei"><i style="width: {% if mei.pct > 100 %}100{% else %}{{ mei.pct|stringformat:'s' }}{% endif %}%"></i></span>
+    <small class="muted">{{ mei.faturado|brl }} de {{ mei.limite|brl }}</small></a>
 </div>
 
 {% if pedidos_em_producao or orcamentos_aguardando or solicitacoes_abertas %}

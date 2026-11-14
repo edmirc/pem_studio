@@ -24,6 +24,13 @@ def _f(lista):
     return [float(v) for v in lista]
 
 
+def _mei(ano, faturado):
+    limite = rel.limite_mei(ano)
+    pct = float(faturado * 100 / limite) if limite else 0
+    return {'ano': ano, 'limite': limite, 'faturado': faturado, 'pct': round(pct, 1),
+            'resta': limite - faturado, 'nivel': 'perigo' if pct >= 90 else 'alerta' if pct >= 70 else ''}
+
+
 # --------------------------------------------------------------------------
 # Painel inicial
 # --------------------------------------------------------------------------
@@ -47,8 +54,20 @@ def inicio(request):
     from datetime import timedelta
     pedidos_ativos = list(Pedido.objects.filter(status__in=ETAPAS).select_related('cliente')
                           .filter(prazo__lte=hoje + timedelta(days=7)).order_by('prazo'))
+    from financas.models import Lancamento
+    from financas.servicos import gerar_recorrentes
+    gerar_recorrentes()
+    abertos = Lancamento.objects.filter(tipo='PAGAR', pago_em__isnull=True)
+    atrasadas = abertos.filter(vencimento__lt=hoje)
+    semana = abertos.filter(vencimento__gte=hoje, vencimento__lte=hoje + timedelta(days=7))
+    fin = {
+        'atrasado': atrasadas.aggregate(t=Sum('valor'))['t'] or 0, 'atrasado_n': atrasadas.count(),
+        'semana': semana.aggregate(t=Sum('valor'))['t'] or 0, 'semana_n': semana.count(),
+    }
     return render(request, 'painel/inicio.html', {
         'menu': 'inicio',
+        'fin': fin,
+        'mei': _mei(ano, sum(m['receita'] for m in meses)),
         'pedidos_semana': pedidos_ativos,
         'pedidos_em_producao': Pedido.objects.filter(status__in=ETAPAS).count(),
         'solicitacoes_abertas': Solicitacao.objects.filter(status__in=ABERTAS).count(),
@@ -206,6 +225,8 @@ def relatorio_mensal(request):
         'compras_insumo': ci.order_by('date'),
         'outras': outras.order_by('date'),
         'custo_vendido': custo_vendido,
+        'lancamentos': rel.lancamentos_do_mes(ano, mes).select_related('conta').order_by('ref', 'id'),
+        'total_compras_lanc': r['despesas'] - r['taxas'] + r['retiradas'],
         'sem_custo': [p['produto'] for p in produtos if p['custo'] is None],
         'grafico': ({
             'rotulos': [str(d) for d in range(1, calendar.monthrange(ano, mes)[1] + 1)],
@@ -225,10 +246,10 @@ def relatorio_anual(request):
         m['nome'] = MESES_CURTOS[m['mes'] - 1]
         m['link'] = f'{ano}-{m["mes"]:02d}'
     chaves = ['receita_feiras', 'receita_internas', 'receita', 'desp_filamento', 'desp_insumos',
-              'desp_outras', 'despesas', 'resultado', 'itens']
+              'desp_outras', 'desp_fixas', 'taxas', 'retiradas', 'despesas', 'resultado', 'sobra', 'itens']
     totais = {k: sum(m[k] for m in meses) for k in chaves}
     return render(request, 'painel/relatorio_anual.html', {
-        'menu': 'rel-anual', 'ano': ano, 'meses': meses, 't': totais,
+        'menu': 'rel-anual', 'ano': ano, 'meses': meses, 't': totais, 'mei': _mei(ano, totais['receita']),
         'grafico': ({
             'rotulos': MESES_CURTOS,
             'receita': _f(m['receita'] for m in meses),

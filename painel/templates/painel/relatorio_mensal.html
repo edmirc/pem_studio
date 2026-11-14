@@ -16,7 +16,7 @@
 <div class="kpis">
   <div class="cartao kpi"><span>Faturamento</span><strong>{{ r.receita|brl }}</strong><small class="muted">{{ r.vendas }} vendas · {{ r.itens }} itens</small></div>
   <div class="cartao kpi"><span>Compras e despesas</span><strong>{{ r.despesas|brl }}</strong></div>
-  <div class="cartao kpi"><span>Resultado do mês</span><strong class="{% if r.resultado < 0 %}negativo{% else %}positivo{% endif %}">{{ r.resultado|brl }}</strong><small class="muted">faturamento − compras/despesas</small></div>
+  <div class="cartao kpi"><span>Lucro do mês</span><strong class="{% if r.resultado < 0 %}negativo{% else %}positivo{% endif %}">{{ r.resultado|brl }}</strong><small class="muted">já descontadas taxas e despesas fixas</small></div>
   <div class="cartao kpi"><span>Custo dos produtos vendidos</span><strong>{{ custo_vendido|brl }}</strong><small class="muted">pela tabela de precificação</small></div>
 </div>
 
@@ -39,11 +39,15 @@
       <tr><td>Filamentos</td><td class="num">{{ r.desp_filamento|brl }}</td></tr>
       <tr><td>Insumos</td><td class="num">{{ r.desp_insumos|brl }}</td></tr>
       <tr><td>Outras despesas</td><td class="num">{{ r.desp_outras|brl }}</td></tr>
+      <tr><td>Despesas fixas e contas avulsas</td><td class="num">{{ r.desp_fixas|brl }}</td></tr>
+      <tr><td>Taxas da maquininha <small class="muted">(estimado)</small></td><td class="num">{{ r.taxas|brl }}</td></tr>
       <tr class="total"><td>Total de saídas</td><td class="num">{{ r.despesas|brl }}</td></tr>
     </table>
     <h3 class="titulo-cartao espaco">Resultado</h3>
     <table class="tabela">
-      <tr><td>Entradas − saídas</td><td class="num {% if r.resultado < 0 %}negativo{% endif %}"><b>{{ r.resultado|brl }}</b></td></tr>
+      <tr><td>Lucro (entradas − saídas)</td><td class="num {% if r.resultado < 0 %}negativo{% endif %}"><b>{{ r.resultado|brl }}</b></td></tr>
+      {% if r.retiradas %}<tr><td>Retiradas (pró-labore)</td><td class="num">− {{ r.retiradas|brl }}</td></tr>
+      <tr><td>Sobra no caixa da empresa</td><td class="num {% if r.sobra < 0 %}negativo{% endif %}"><b>{{ r.sobra|brl }}</b></td></tr>{% endif %}
       <tr><td>Ticket médio por venda</td><td class="num">{{ r.ticket|brl }}</td></tr>
     </table>
   </div>
@@ -109,8 +113,11 @@
     {% for c in outras %}
       <tr><td>{{ c.date|date:"d/m" }}</td><td><span class="etiqueta">Outra</span></td><td>{{ c.saida }}</td><td>{{ c.fornecedor }}</td><td>{{ c.pagamento }} {% if c.parcela %}({{ c.parcela }}){% endif %}</td><td class="num">{{ c.valor|brl }}</td></tr>
     {% endfor %}
-    {% if not compras_filamento and not compras_insumo and not outras %}<tr><td colspan="6" class="vazio">Nenhuma compra neste mês.</td></tr>{% endif %}
-    <tr class="total"><td colspan="5">Total</td><td class="num">{{ r.despesas|brl }}</td></tr>
+    {% for c in lancamentos %}
+      <tr><td>{{ c.ref|date:"d/m" }}</td><td><span class="etiqueta">{% if c.recorrente_id %}Fixa{% elif c.categoria == 'RETIRADA' %}Retirada{% else %}Avulsa{% endif %}</span></td><td>{{ c.descricao }}{% if c.nome_parcela %} <small class="muted">{{ c.nome_parcela }}</small>{% endif %}</td><td>{{ c.get_categoria_display }}</td><td>{{ c.conta|default:"—" }}</td><td class="num">{{ c.valor|brl }}</td></tr>
+    {% endfor %}
+    {% if not compras_filamento and not compras_insumo and not outras and not lancamentos %}<tr><td colspan="6" class="vazio">Nenhuma compra neste mês.</td></tr>{% endif %}
+    <tr class="total"><td colspan="5">Total (sem as taxas da maquininha)</td><td class="num">{{ total_compras_lanc|brl }}</td></tr>
   </table>
   <p class="dica">Compras parceladas entram pelo valor total no mês da compra.</p>
 </div>

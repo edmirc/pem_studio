@@ -2,10 +2,10 @@
 from collections import defaultdict
 from decimal import Decimal
 
-from django.db.models import Count, Sum, Value
+from django.db.models import Count, Q, Sum, Value
 from django.db.models.functions import Coalesce, ExtractMonth
 
-from financas.models import CompraFilamento, CompraInsumo, Compras
+from financas.models import Categoria, CompraFilamento, CompraInsumo, Compras, Lancamento
 from vendas.models import Feiras, FormaPagamento, Precificacao, VendasInternas
 
 ZERO = Decimal('0')
@@ -29,6 +29,43 @@ def compras_do_mes(ano, mes):
             Compras.objects.filter(**filtro).select_related('pagamento'))
 
 
+# Limite anual de faturamento do MEI. 2027 e 2028: Lei Complementar 238/2026
+# (o de 2028 depende de previsão orçamentária — confira quando chegar a hora).
+def limite_mei(ano):
+    if ano <= 2026:
+        return Decimal('81000')
+    if ano == 2027:
+        return Decimal('110000')
+    return Decimal('140000')
+
+
+def _taxas():
+    from encomendas.models import Configuracao
+    cfg = Configuracao.atual()
+    return {'DEBITO': cfg.taxa_debito, 'CREDITO': cfg.taxa_credito_1x}
+
+
+def taxas_maquininha(feiras, internas):
+    """Estimativa: vendas no débito e no crédito × taxa da maquininha (Configurações)."""
+    taxa = _taxas()
+    total = ZERO
+    for qs, campo in ((feiras, 'value'), (internas, 'valor')):
+        for l in qs.order_by().values('pagment').annotate(t=Sum(campo)):
+            total += (l['t'] or ZERO) * taxa.get(l['pagment'], ZERO) / 100
+    return total.quantize(Decimal('0.01'))
+
+
+def _lancamentos_sem_compra():
+    """Contas a pagar que não vêm de compras: despesas fixas e contas avulsas."""
+    return (Lancamento.objects.filter(tipo='PAGAR', compra_filamento__isnull=True, compra_insumo__isnull=True,
+                                      despesa__isnull=True)
+            .annotate(ref=Coalesce('competencia', 'vencimento')))
+
+
+def lancamentos_do_mes(ano, mes):
+    return _lancamentos_sem_compra().filter(ref__year=ano, ref__month=mes)
+
+
 def resumo_mes(ano, mes):
     """Totais principais de um mês (usado no painel e no relatório)."""
     feiras, internas = vendas_do_mes(ano, mes)
@@ -43,9 +80,14 @@ def resumo_mes(ano, mes):
         'desp_insumos': _soma(ci, 'valor'),
         'desp_outras': _soma(outras, 'valor'),
     }
+    lanc = lancamentos_do_mes(ano, mes)
+    r['desp_fixas'] = _soma(lanc.exclude(categoria=Categoria.RETIRADA), 'valor')
+    r['retiradas'] = _soma(lanc.filter(categoria=Categoria.RETIRADA), 'valor')
+    r['taxas'] = taxas_maquininha(feiras, internas)
     r['receita'] = r['receita_feiras'] + r['receita_internas']
-    r['despesas'] = r['desp_filamento'] + r['desp_insumos'] + r['desp_outras']
+    r['despesas'] = r['desp_filamento'] + r['desp_insumos'] + r['desp_outras'] + r['desp_fixas'] + r['taxas']
     r['resultado'] = r['receita'] - r['despesas']
+    r['sobra'] = r['resultado'] - r['retiradas']
     r['ticket'] = (r['receita'] / r['vendas']) if r['vendas'] else ZERO
     return r
 
@@ -107,7 +149,8 @@ def por_dia(ano, mes, feiras, internas):
 def resumo_ano(ano):
     """Lista com 12 meses: receitas e despesas por tipo."""
     meses = [{'mes': m, 'receita_feiras': ZERO, 'receita_internas': ZERO, 'desp_filamento': ZERO,
-              'desp_insumos': ZERO, 'desp_outras': ZERO, 'itens': 0} for m in range(1, 13)]
+              'desp_insumos': ZERO, 'desp_outras': ZERO, 'desp_fixas': ZERO, 'retiradas': ZERO, 'taxas': ZERO,
+              'itens': 0} for m in range(1, 13)]
 
     def juntar(qs, campo_data, campo_valor, chave, campo_qnt=None):
         anot = {'t': Sum(campo_valor)}
@@ -125,8 +168,21 @@ def resumo_ano(ano):
     juntar(CompraInsumo.objects.all(), 'date', 'valor', 'desp_insumos')
     juntar(Compras.objects.all(), 'date', 'valor', 'desp_outras')
 
+    for l in _lancamentos_sem_compra().filter(ref__year=ano).annotate(m=ExtractMonth('ref')) \
+            .values('m', 'categoria').annotate(t=Sum('valor')).order_by():
+        chave = 'retiradas' if l['categoria'] == Categoria.RETIRADA else 'desp_fixas'
+        meses[l['m'] - 1][chave] += l['t'] or ZERO
+    taxa = _taxas()
+    for qs, campo_data, campo_valor in ((Feiras.objects.all(), 'nomeFeira__date', 'value'),
+                                        (VendasInternas.objects.all(), 'date', 'valor')):
+        for l in qs.filter(**{f'{campo_data}__year': ano}).order_by().annotate(m=ExtractMonth(campo_data)) \
+                   .values('m', 'pagment').annotate(t=Sum(campo_valor)):
+            meses[l['m'] - 1]['taxas'] += (l['t'] or ZERO) * taxa.get(l['pagment'], ZERO) / 100
+
     for m in meses:
+        m['taxas'] = m['taxas'].quantize(Decimal('0.01'))
         m['receita'] = m['receita_feiras'] + m['receita_internas']
-        m['despesas'] = m['desp_filamento'] + m['desp_insumos'] + m['desp_outras']
+        m['despesas'] = m['desp_filamento'] + m['desp_insumos'] + m['desp_outras'] + m['desp_fixas'] + m['taxas']
         m['resultado'] = m['receita'] - m['despesas']
+        m['sobra'] = m['resultado'] - m['retiradas']
     return meses

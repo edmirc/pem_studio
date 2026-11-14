@@ -1,0 +1,47 @@
+{% extends 'painel/base.html' %}
+{% load painel_tags %}
+{% block titulo %}Faturas dos cartões{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <div><p class="migalha">Financeiro</p><h1>Faturas dos cartões</h1></div>
+  <div class="acoes"><a class="botao" href="{% url 'painel:lista' 'contas' %}">Configurar cartões</a></div>
+</div>
+{% for k in cartoes %}
+  <div class="cartao">
+    <div class="cabecalho-cartao">
+      <h3 class="titulo-cartao">{{ k.c }} <small class="muted">{% if k.c.fatura_configurada %}fecha dia {{ k.c.dia_fechamento }} · vence dia {{ k.c.dia_vencimento }}{% endif %}</small></h3>
+      <span>Em aberto: <b>{{ k.em_aberto|brl }}</b></span>
+    </div>
+    {% if not k.c.fatura_configurada %}
+      <div class="aviso warning">Informe o dia de fechamento e de vencimento deste cartão para as parcelas caírem na fatura certa.
+        <a href="{% url 'painel:editar' 'contas' k.c.pk %}?proximo={% url 'financas:faturas' %}">Configurar agora</a></div>
+    {% endif %}
+    {% if k.faturas %}
+    <div class="faturas">
+      {% for f in k.faturas %}
+        <details class="fatura {% if f.pago %}paga{% elif f.atrasada %}atrasada{% endif %}" {% if not f.pago and forloop.first %}open{% endif %}>
+          <summary>
+            <span class="f-data">vence {{ f.vencimento|date:"d/m/Y" }}</span>
+            <span class="f-valor">{{ f.total|brl }}</span>
+            <span class="selo {% if f.pago %}selo-sit-pago{% elif f.atrasada %}selo-sit-atrasado{% else %}selo-sit-aberto{% endif %}">{% if f.pago %}Paga{% elif f.atrasada %}Atrasada{% else %}Em aberto{% endif %}</span>
+          </summary>
+          <table class="tabela compacta">
+            {% for l in f.itens %}<tr><td>{{ l.descricao }}{% if l.nome_parcela %} <small class="muted">{{ l.nome_parcela }}</small>{% endif %}</td><td class="num">{{ l.valor|brl }}</td></tr>{% endfor %}
+          </table>
+          {% if not f.pago %}
+          <form method="post" action="{% url 'financas:acao' 'pagar' %}" class="pagar-form">{% csrf_token %}
+            {% for l in f.itens %}{% if not l.pago_em %}<input type="hidden" name="id" value="{{ l.pk }}">{% endif %}{% endfor %}
+            <input type="hidden" name="voltar" value="{% url 'financas:faturas' %}">
+            <input class="campo campo-data" type="date" name="data" value="{{ hoje|date:'Y-m-d' }}">
+            <button class="botao pequeno primario" type="submit">Paguei esta fatura</button></form>
+          {% endif %}
+        </details>
+      {% endfor %}
+    </div>
+    {% else %}<p class="muted">Nenhuma compra neste cartão.</p>{% endif %}
+  </div>
+{% empty %}
+  <div class="cartao vazio">Nenhum cartão de crédito cadastrado. Em <a href="{% url 'painel:lista' 'contas' %}">Contas e cartões</a>, cadastre com operação "Crédito".</div>
+{% endfor %}
+<p class="dica">Aqui aparecem as parcelas lançadas pelo sistema (compras e despesas fixas no cartão). Compras feitas fora do sistema não aparecem: lance como conta a pagar no cartão para a fatura ficar completa.</p>
+{% endblock %}

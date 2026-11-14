@@ -12,5 +12,6 @@ urlpatterns = [
     path('entrar/', LoginView.as_view(), name='login'),
     path('sair/', auth_views.LogoutView.as_view(), name='sair'),
     path('encomendas/', include('encomendas.urls')),
+    path('financeiro/', include('financas.urls')),
     path('', include('painel.urls')),
 ]

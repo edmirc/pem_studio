@@ -1,0 +1,22 @@
+{% extends 'painel/base.html' %}
+{% block titulo %}{% if obj %}Editar lançamento{% elif tipo == 'RECEBER' %}Nova conta a receber{% else %}Nova conta a pagar{% endif %}{% endblock %}
+{% block conteudo %}
+<div class="cabecalho"><div>
+  <p class="migalha"><a href="{% url 'financas:contas' %}?tipo={{ tipo }}">Contas a pagar e receber</a></p>
+  <h1>{% if obj %}Editar lançamento{% elif tipo == 'RECEBER' %}Nova conta a receber{% else %}Nova conta a pagar{% endif %}</h1></div></div>
+<form method="post" class="cartao formulario" novalidate>{% csrf_token %}
+  {% if obj.automatico %}<div class="aviso warning">Este lançamento vem de uma compra. Para mudar valor ou parcelas, edite a compra; aqui dá para ajustar vencimento, situação e observação.</div>{% endif %}
+  {{ form.tipo }}
+  <div class="grade-campos">
+    {% for campo in form %}{% if campo.name != 'tipo' and campo.name != 'ja_pago' %}{% include 'encomendas/parciais/campo.html' %}{% endif %}{% endfor %}
+  </div>
+  <label class="caixa-marcar">{{ form.ja_pago }} {{ form.ja_pago.label }}</label>
+  {% if not obj %}<p class="dica">Com mais de uma parcela, os vencimentos são mensais a partir da data informada (no cartão de crédito, nas faturas).</p>{% endif %}
+  <div class="barra-botoes">
+    {% if obj and not obj.automatico %}<button class="botao perigo" type="submit" form="form-apagar" onclick="return confirm('Apagar este lançamento?')">Apagar</button>{% endif %}
+    <a class="botao" href="{% url 'financas:contas' %}?tipo={{ tipo }}">Cancelar</a>
+    <button class="botao primario" type="submit">Salvar</button>
+  </div>
+</form>
+{% if obj and not obj.automatico %}<form id="form-apagar" method="post" action="{% url 'financas:acao' 'apagar' %}">{% csrf_token %}<input type="hidden" name="id" value="{{ obj.pk }}"></form>{% endif %}
+{% endblock %}

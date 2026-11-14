@@ -1,0 +1,98 @@
+{% extends 'painel/base.html' %}
+{% load painel_tags %}
+{% block titulo %}Contas a pagar e receber{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <div><p class="migalha">Financeiro</p><h1>Contas a pagar e receber</h1></div>
+  <div class="acoes">
+    <a class="botao" href="{% url 'financas:novo' %}?tipo=RECEBER">+ A receber</a>
+    <a class="botao primario" href="{% url 'financas:novo' %}?tipo=PAGAR">+ Conta a pagar</a>
+  </div>
+</div>
+
+{% if cartoes_sem_dia or fixas_sem_valor %}
+<div class="aviso warning">
+  {% if cartoes_sem_dia %}<div>{{ cartoes_sem_dia }} cart{{ cartoes_sem_dia|pluralize:"ão,ões" }} de crédito sem dia de fechamento e vencimento: as parcelas ficam com data aproximada. <a href="{% url 'painel:lista' 'contas' %}">Configurar cartões</a></div>{% endif %}
+  {% if fixas_sem_valor %}<div>{{ fixas_sem_valor }} despesa{{ fixas_sem_valor|pluralize }} fixa{{ fixas_sem_valor|pluralize }} esperando valor para começar a lançar. <a href="{% url 'painel:lista' 'despesas-fixas' %}">Completar despesas fixas</a></div>{% endif %}
+</div>
+{% endif %}
+
+<div class="kpis">
+  <a class="cartao kpi kpi-link {% if k_atrasado %}kpi-alerta{% endif %}" href="?tipo=PAGAR&periodo=atrasadas"><span>Contas atrasadas</span><strong>{{ k_atrasado|brl }}</strong><small>{{ k_atrasado_n }} conta{{ k_atrasado_n|pluralize }}</small></a>
+  <a class="cartao kpi kpi-link" href="?tipo=PAGAR&periodo=7dias"><span>A pagar em 7 dias</span><strong>{{ k_7dias|brl }}</strong></a>
+  <a class="cartao kpi kpi-link" href="?tipo=PAGAR&periodo=mes"><span>A pagar até o fim do mês</span><strong>{{ k_mes|brl }}</strong></a>
+  <a class="cartao kpi kpi-link" href="?tipo=RECEBER&periodo=abertas"><span>A receber em 30 dias</span><strong class="positivo">{{ k_receber|brl }}</strong><small>encomendas e contas a receber</small></a>
+</div>
+
+<div class="abas">
+  <a class="aba {% if tipo == 'PAGAR' %}ativa{% endif %}" href="?tipo=PAGAR&periodo={{ periodo }}">A pagar</a>
+  <a class="aba {% if tipo == 'RECEBER' %}ativa{% endif %}" href="?tipo=RECEBER&periodo={{ periodo }}">A receber</a>
+</div>
+<div class="chips-filtro">
+  {% for k, n in periodos.items %}<a class="chip {% if k == periodo %}ativo{% endif %}" href="?tipo={{ tipo }}&periodo={{ k }}">{{ n }}</a>{% endfor %}
+</div>
+
+<div class="cartao tabela-rolavel">
+  <table class="tabela tabela-contas">
+    <thead><tr><th>Vencimento</th><th>Descrição</th><th>Conta / cartão</th><th class="num">Valor</th><th>Situação</th><th></th></tr></thead>
+    <tbody>
+    {% for x in linhas %}
+      {% if x.fatura %}
+        <tr class="linha-fatura sit-{{ x.situacao }}">
+          <td>{{ x.vencimento|date:"d/m/Y" }}</td>
+          <td><details><summary><b>Fatura {{ x.conta }}</b> <span class="muted">({{ x.itens|length }} ite{{ x.itens|length|pluralize:"m,ns" }})</span></summary>
+            <ul class="itens-fatura">{% for l in x.itens %}<li><span>{{ l.descricao }} {% if l.nome_parcela %}<small class="muted">{{ l.nome_parcela }}</small>{% endif %}</span><span class="num">{{ l.valor|brl }}</span></li>{% endfor %}</ul>
+          </details></td>
+          <td>{{ x.conta }}</td>
+          <td class="num"><b>{{ x.valor|brl }}</b></td>
+          <td><span class="selo selo-sit-{{ x.situacao }}">{% if x.situacao == 'pago' %}Paga{% elif x.situacao == 'atrasado' %}Atrasada{% elif x.situacao == 'hoje' %}Vence hoje{% else %}Em aberto{% endif %}</span></td>
+          <td class="acoes-linha">{% if not x.pago %}
+            <form method="post" action="{% url 'financas:acao' 'pagar' %}" class="pagar-form">{% csrf_token %}
+              {% for l in x.itens %}{% if not l.pago_em %}<input type="hidden" name="id" value="{{ l.pk }}">{% endif %}{% endfor %}
+              <input type="hidden" name="voltar" value="{{ request.get_full_path }}">
+              <input class="campo campo-data" type="date" name="data" value="{{ hoje|date:'Y-m-d' }}">
+              <button class="botao pequeno" type="submit">Paguei a fatura</button></form>{% endif %}</td>
+        </tr>
+      {% else %}{% with l=x.l %}
+        <tr class="sit-{{ l.situacao }}">
+          <td>{{ l.vencimento|date:"d/m/Y" }}</td>
+          <td>{{ l.descricao }} {% if l.nome_parcela %}<small class="muted">{{ l.nome_parcela }}</small>{% endif %}
+            <small class="muted d-bloco">{{ l.get_categoria_display }}{% if l.cliente %} · {{ l.cliente }}{% endif %}{% if l.recorrente %} · despesa fixa{% endif %}{% if l.automatico %} · da compra{% endif %}</small></td>
+          <td>{{ l.conta|default:"—" }}</td>
+          <td class="num"><b class="{% if tipo == 'RECEBER' %}positivo{% endif %}">{{ l.valor|brl }}</b></td>
+          <td><span class="selo selo-sit-{{ l.situacao }}">{% if l.situacao == 'pago' %}{% if tipo == 'PAGAR' %}Pago{% else %}Recebido{% endif %} {{ l.pago_em|date:"d/m" }}{% elif l.situacao == 'atrasado' %}Atrasado{% elif l.situacao == 'hoje' %}Vence hoje{% else %}Em aberto{% endif %}</span></td>
+          <td class="acoes-linha">
+            {% if not l.pago_em %}
+              <form method="post" action="{% url 'financas:acao' 'pagar' %}" class="pagar-form">{% csrf_token %}
+                <input type="hidden" name="id" value="{{ l.pk }}"><input type="hidden" name="voltar" value="{{ request.get_full_path }}">
+                <input class="campo campo-data" type="date" name="data" value="{{ hoje|date:'Y-m-d' }}">
+                <button class="botao pequeno" type="submit">{% if tipo == 'PAGAR' %}Paguei{% else %}Recebi{% endif %}</button></form>
+            {% else %}
+              <form method="post" action="{% url 'financas:acao' 'reabrir' %}" class="pagar-form">{% csrf_token %}
+                <input type="hidden" name="id" value="{{ l.pk }}"><input type="hidden" name="voltar" value="{{ request.get_full_path }}">
+                <button class="link pequeno" type="submit">desfazer</button></form>
+            {% endif %}
+            <a class="pequeno" href="{% url 'financas:editar' l.pk %}">editar</a>
+          </td>
+        </tr>
+      {% endwith %}{% endif %}
+    {% endfor %}
+    {% for p in pedidos %}
+      <tr class="sit-{{ p.situacao }}">
+        <td>{{ p.vencimento|date:"d/m/Y" }}</td>
+        <td>{{ p.descricao }}<small class="muted d-bloco">{{ p.cliente }} · entrega prevista</small></td>
+        <td>—</td>
+        <td class="num"><b class="positivo">{{ p.valor|brl }}</b></td>
+        <td><span class="selo selo-sit-{{ p.situacao }}">{% if p.situacao == 'atrasado' %}Entrega atrasada{% else %}Na entrega{% endif %}</span></td>
+        <td class="acoes-linha"><a class="pequeno" href="{% url 'encomendas:pedido' p.pedido.pk %}">ver pedido</a></td>
+      </tr>
+    {% endfor %}
+    {% if not linhas and not pedidos %}
+      <tr><td colspan="6" class="vazio">{% if periodo == 'atrasadas' %}Nada atrasado. 👍{% else %}Nada por aqui neste período.{% endif %}</td></tr>
+    {% endif %}
+    </tbody>
+    {% if linhas or pedidos %}<tfoot><tr class="total"><td colspan="3">Total</td><td class="num">{{ total|brl }}</td><td colspan="2"></td></tr></tfoot>{% endif %}
+  </table>
+</div>
+<p class="dica">As compras de filamento, insumos e outras despesas entram aqui sozinhas. No cartão de crédito, cada parcela vai para a fatura do mês certo.</p>
+{% endblock %}

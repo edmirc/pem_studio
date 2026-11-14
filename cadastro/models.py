@@ -116,9 +116,21 @@ class Contas(models.Model):
     name = models.CharField(max_length=200, verbose_name='Nome do titular')
     operacao = models.CharField(max_length=50, choices= OperacaoFinaceira, verbose_name='Operação')
     apelido = models.CharField(max_length=200, verbose_name='Nome do Cartão')
+    dia_fechamento = models.PositiveSmallIntegerField('Dia de fechamento da fatura', null=True, blank=True,
+                                                      help_text='Só para cartão de crédito.')
+    dia_vencimento = models.PositiveSmallIntegerField('Dia de vencimento da fatura', null=True, blank=True,
+                                                      help_text='Só para cartão de crédito.')
 
     def __str__(self):
         return self.apelido
+
+    @property
+    def e_credito(self):
+        return self.operacao == OperacaoFinaceira.CREDITO
+
+    @property
+    def fatura_configurada(self):
+        return bool(self.e_credito and self.dia_fechamento and self.dia_vencimento)
 
     class Meta:
         verbose_name = 'Contas Bancarias'

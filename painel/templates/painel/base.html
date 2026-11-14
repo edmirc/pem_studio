@@ -33,6 +33,12 @@
       <a class="{% ativo 'pedidos' %}" href="{% url 'encomendas:pedidos' %}">Pedidos</a>
       <a class="{% ativo 'calculadora' %}" href="{% url 'encomendas:calculadora' %}">Calculadora de preço</a>
 
+      <p class="grupo">Financeiro</p>
+      <a class="{% ativo 'financeiro' %}" href="{% url 'financas:contas' %}">Contas a pagar e receber</a>
+      <a class="{% ativo 'faturas' %}" href="{% url 'financas:faturas' %}">Faturas dos cartões</a>
+      <a class="{% ativo 'fluxo' %}" href="{% url 'financas:fluxo' %}">Fluxo de caixa</a>
+      <a class="{% ativo 'fixas' %}" href="{% url 'painel:lista' 'despesas-fixas' %}">Despesas fixas</a>
+
       <p class="grupo">Compras</p>
       <a class="{% ativo 'compras-filamento' %}" href="{% url 'painel:lista' 'compras-filamento' %}">Filamentos</a>
       <a class="{% ativo 'compras-insumo' %}" href="{% url 'painel:lista' 'compras-insumo' %}">Insumos</a>

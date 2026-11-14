@@ -1,0 +1,75 @@
+{% extends 'painel/base.html' %}
+{% load static painel_tags %}
+{% block titulo %}Fluxo de caixa{% endblock %}
+{% block head %}<script src="{% static 'painel/js/chart.umd.min.js' %}" defer></script>{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <div><p class="migalha">Financeiro</p><h1>Fluxo de caixa</h1></div>
+  <div class="acoes">{% for d in opcoes_dias %}<a class="botao {% if d == dias %}primario{% endif %}" href="?dias={{ d }}">{{ d }} dias</a>{% endfor %}</div>
+</div>
+
+<div class="duas-colunas largura-2-1">
+  <div class="cartao">
+    <h3 class="titulo-cartao">Saldo previsto para os próximos {{ dias }} dias</h3>
+    <div class="grafico"><canvas id="g-fluxo"></canvas></div>
+    {% if minimo.0 < 0 %}<div class="aviso error">Atenção: o saldo fica negativo em {{ minimo.1|date:"d/m/Y" }} ({{ minimo.0|brl }}). Veja o que vence perto dessa data.</div>
+    {% else %}<p class="dica">Menor saldo previsto: {{ minimo.0|brl }} em {{ minimo.1|date:"d/m/Y" }}.</p>{% endif %}
+  </div>
+  <div class="cartao">
+    <h3 class="titulo-cartao">Saldo de hoje (estimado)</h3>
+    <p class="saldo-grande {% if saldo_hoje < 0 %}negativo{% endif %}">{{ saldo_hoje|brl }}</p>
+    {% if saldo %}
+      <table class="tabela compacta">
+        <tr><td>Saldo informado em {{ saldo.data|date:"d/m" }}</td><td class="num">{{ saldo.valor|brl }}</td></tr>
+        <tr><td>+ vendas e recebimentos desde então</td><td class="num positivo">{{ entradas_real|brl }}</td></tr>
+        <tr><td>− contas pagas desde então</td><td class="num">{{ saidas_real|brl }}</td></tr>
+      </table>
+    {% else %}<p class="muted">Informe quanto vocês têm hoje (somando contas e dinheiro em caixa) para a previsão partir do valor certo.</p>{% endif %}
+    <form method="post" class="form-compacto" style="margin-top:12px">{% csrf_token %}
+      <input class="campo" name="valor" placeholder="Saldo de hoje, ex.: 1520,50" inputmode="decimal" required>
+      <button class="botao" type="submit">Atualizar saldo</button>
+    </form>
+    <p class="dica">Atualize de vez em quando (olhando o app do banco) para a previsão não se distanciar da realidade. Vendas em débito e crédito entram já sem a taxa da maquininha.</p>
+  </div>
+</div>
+
+<div class="cartao tabela-rolavel">
+  <h3 class="titulo-cartao">Semana a semana</h3>
+  <table class="tabela">
+    <thead><tr><th>Semana</th><th class="num">Entradas previstas</th><th class="num">Saídas previstas</th><th class="num">Saldo no fim da semana</th></tr></thead>
+    {% for s in semanas %}
+      <tr><td>{{ s.de|date:"d/m" }} a {{ s.ate|date:"d/m" }}</td><td class="num positivo">{% if s.entra %}{{ s.entra|brl }}{% else %}—{% endif %}</td>
+        <td class="num">{% if s.sai %}{{ s.sai|brl }}{% else %}—{% endif %}</td><td class="num {% if s.saldo < 0 %}negativo{% endif %}"><b>{{ s.saldo|brl }}</b></td></tr>
+    {% endfor %}
+  </table>
+  <p class="dica">Entradas previstas: contas a receber e o restante das encomendas na data de entrega. Vendas futuras das feiras não entram (ainda não aconteceram), então a previsão é conservadora.</p>
+</div>
+
+{% if proximos %}
+<div class="cartao">
+  <h3 class="titulo-cartao">Vencendo nos próximos 14 dias</h3>
+  <ul class="lista-simples">
+    {% for l in proximos %}<li><span>{{ l.descricao }}{% if l.em_fatura %} <small class="muted">(fatura {{ l.conta }})</small>{% endif %}</span>
+      <small><b class="{% if l.tipo == 'RECEBER' %}positivo{% endif %}">{% if l.tipo == 'RECEBER' %}+{% else %}−{% endif %} {{ l.valor|brl }}</b> · {{ l.vencimento|date:"d/m" }}</small></li>{% endfor %}
+  </ul>
+</div>
+{% endif %}
+{{ grafico|json_script:"dados-grafico" }}
+{% endblock %}
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const d = JSON.parse(document.getElementById('dados-grafico').textContent);
+  const brl = v => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+  new Chart(document.getElementById('g-fluxo'), {
+    type: 'line',
+    data: { labels: d.rotulos, datasets: [{ label: 'Saldo previsto', data: d.saldo, borderColor: '#2f7d6d', backgroundColor: 'rgba(47,125,109,.12)',
+      fill: true, tension: .25, pointRadius: 3,
+      segment: { borderColor: c => c.p1.parsed.y < 0 ? '#c23b32' : '#2f7d6d' } }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false },
+      tooltip: { callbacks: { label: c => ' ' + brl(c.parsed.y) } } },
+      scales: { y: { ticks: { callback: v => brl(v) }, grid: { color: '#ecebe6' } }, x: { grid: { display: false } } } }
+  });
+});
+</script>
+{% endblock %}

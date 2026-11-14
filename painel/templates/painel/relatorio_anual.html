@@ -15,8 +15,15 @@
 <div class="kpis">
   <div class="cartao kpi"><span>Faturamento no ano</span><strong>{{ t.receita|brl }}</strong></div>
   <div class="cartao kpi"><span>Compras e despesas</span><strong>{{ t.despesas|brl }}</strong></div>
-  <div class="cartao kpi"><span>Resultado</span><strong class="{% if t.resultado < 0 %}negativo{% else %}positivo{% endif %}">{{ t.resultado|brl }}</strong></div>
+  <div class="cartao kpi"><span>Lucro</span><strong class="{% if t.resultado < 0 %}negativo{% else %}positivo{% endif %}">{{ t.resultado|brl }}</strong></div>
   <div class="cartao kpi"><span>Itens vendidos</span><strong>{{ t.itens }}</strong></div>
+</div>
+
+<div class="cartao mei {{ mei.nivel }}">
+  <h3 class="titulo-cartao">Limite do MEI em {{ ano }}</h3>
+  <div class="barra-mei"><i style="width: {% if mei.pct > 100 %}100{% else %}{{ mei.pct|stringformat:'s' }}{% endif %}%"></i></div>
+  <p>{{ mei.faturado|brl }} de {{ mei.limite|brl }} ({{ mei.pct|stringformat:'s'|slice:':5' }}%) · {% if mei.resta >= 0 %}faltam {{ mei.resta|brl }}{% else %}<b class="negativo">passou {{ mei.resta|brl|cut:'-' }} do limite</b>{% endif %}</p>
+  <p class="dica">Conta o faturamento bruto (feiras + vendas diretas). Limite: R$ 81 mil até 2026; a Lei Complementar 238/2026 eleva para R$ 110 mil em 2027 e R$ 140 mil a partir de 2028.</p>
 </div>
 
 <div class="cartao">
@@ -27,15 +34,17 @@
 <div class="cartao tabela-rolavel">
   <table class="tabela">
     <thead><tr><th>Mês</th><th class="num">Feiras</th><th class="num">Diretas</th><th class="num">Faturamento</th>
-      <th class="num">Filamento</th><th class="num">Insumos</th><th class="num">Outras</th><th class="num">Despesas</th><th class="num">Resultado</th></tr></thead>
+      <th class="num">Filamento</th><th class="num">Insumos</th><th class="num">Outras</th><th class="num">Fixas</th><th class="num">Taxas</th><th class="num">Despesas</th><th class="num">Lucro</th></tr></thead>
     {% for m in meses %}
       <tr><td><a href="{% url 'painel:relatorio_mensal' %}?mes={{ m.link }}">{{ m.nome }}</a></td>
         <td class="num">{{ m.receita_feiras|brl }}</td><td class="num">{{ m.receita_internas|brl }}</td><td class="num"><b>{{ m.receita|brl }}</b></td>
         <td class="num">{{ m.desp_filamento|brl }}</td><td class="num">{{ m.desp_insumos|brl }}</td><td class="num">{{ m.desp_outras|brl }}</td>
+        <td class="num">{{ m.desp_fixas|brl }}</td><td class="num">{{ m.taxas|brl }}</td>
         <td class="num"><b>{{ m.despesas|brl }}</b></td><td class="num {% if m.resultado < 0 %}negativo{% endif %}"><b>{{ m.resultado|brl }}</b></td></tr>
     {% endfor %}
     <tr class="total"><td>Total</td><td class="num">{{ t.receita_feiras|brl }}</td><td class="num">{{ t.receita_internas|brl }}</td><td class="num">{{ t.receita|brl }}</td>
       <td class="num">{{ t.desp_filamento|brl }}</td><td class="num">{{ t.desp_insumos|brl }}</td><td class="num">{{ t.desp_outras|brl }}</td>
+      <td class="num">{{ t.desp_fixas|brl }}</td><td class="num">{{ t.taxas|brl }}</td>
       <td class="num">{{ t.despesas|brl }}</td><td class="num">{{ t.resultado|brl }}</td></tr>
   </table>
 </div>

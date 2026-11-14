@@ -21,7 +21,7 @@ from django.urls import reverse
 
 from cadastro.models import (CadClientes, CadFeiras, Category, Contas, FilamentBrand,
                              FilametType, Filment, Insumo, Product)
-from financas.models import CompraFilamento, CompraInsumo, Compras
+from financas.models import CompraFilamento, CompraInsumo, Compras, DespesaFixa
 from vendas.models import Feiras, Precificacao, VendasFeiras, VendasInternas
 
 from .utils import brl, data_br, ler_mes, mes_anterior, mes_seguinte, nome_mes, num
@@ -138,9 +138,10 @@ CADASTROS = {
     ),
     'contas': dict(
         model=Contas, titulo='Contas e cartões', singular='conta', fem=True, menu='contas', grupo='Cadastros',
-        campos=['apelido', 'banco', 'name', 'operacao'],
+        campos=['apelido', 'banco', 'name', 'operacao', 'dia_fechamento', 'dia_vencimento'],
         colunas=[('apelido', 'Nome do cartão', None), ('banco', 'Banco / cartão', None),
-                 ('name', 'Titular', None), ('get_operacao_display', 'Operação', None)],
+                 ('name', 'Titular', None), ('get_operacao_display', 'Operação', None),
+                 ('dia_fechamento', 'Fecha dia', None), ('dia_vencimento', 'Vence dia', None)],
         busca=['apelido', 'banco', 'name'],
     ),
 
@@ -175,6 +176,16 @@ CADASTROS = {
         busca=['saida', 'fornecedor'],
         campo_data='date', somar='valor', ordem=('-date', '-id'), fornecedores=True,
         rotulos={'saida': 'Descrição'},
+    ),
+
+    'despesas-fixas': dict(
+        model=DespesaFixa, titulo='Despesas fixas', singular='despesa fixa', fem=True, menu='fixas', grupo='Financeiro',
+        campos=['descricao', 'categoria', 'valor', 'dia_vencimento', 'conta', 'ativa', 'observacao'],
+        colunas=[('descricao', 'Descrição', None), ('get_categoria_display', 'Categoria', None),
+                 ('valor', 'Valor/mês', 'brl'), ('dia_vencimento', 'Vence dia', None), ('conta', 'Pago com', None),
+                 (lambda o: 'Sim' if o.ativa else 'Não (preencha o valor e ative)', 'Ativa', None)],
+        busca=['descricao'], ordem=('-ativa', 'dia_vencimento', 'descricao'),
+        rotulos={'ativa': 'Ativa (lançar todo mês)'},
     ),
 
     # ---------------- Vendas ----------------
