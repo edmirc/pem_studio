@@ -74,7 +74,8 @@ class CompraInsumo(models.Model):
 # ===========================================================================
 from django.utils import timezone  # noqa: E402
 
-from cadastro.models import CadClientes  # noqa: E402
+from cadastro.models import CadClientes, CadFeiras  # noqa: E402
+from vendas.models import FormaPagamento, VendasInternas  # noqa: E402
 
 
 class Categoria(models.TextChoices):
@@ -134,6 +135,11 @@ class Lancamento(models.Model):
     compra_insumo = models.ForeignKey(CompraInsumo, on_delete=models.CASCADE, null=True, blank=True, related_name='lancamentos')
     despesa = models.ForeignKey(Compras, on_delete=models.CASCADE, null=True, blank=True, related_name='lancamentos')
     recorrente = models.ForeignKey(DespesaFixa, on_delete=models.SET_NULL, null=True, blank=True, related_name='lancamentos')
+    # recebimentos automáticos das vendas
+    feira = models.ForeignKey(CadFeiras, on_delete=models.CASCADE, null=True, blank=True, related_name='lancamentos')
+    venda_interna = models.ForeignKey(VendasInternas, on_delete=models.CASCADE, null=True, blank=True, related_name='lancamentos')
+    forma = models.CharField('Forma de pagamento', max_length=20, choices=FormaPagamento.choices, blank=True)
+    pedido = models.ForeignKey('encomendas.Pedido', on_delete=models.CASCADE, null=True, blank=True, related_name='lancamentos')
     competencia = models.DateField('Mês de referência', null=True, blank=True)
     baixa_automatica = models.BooleanField(default=False, editable=False)
     criado_em = models.DateTimeField(auto_now_add=True)
@@ -149,7 +155,11 @@ class Lancamento(models.Model):
 
     @property
     def automatico(self):
-        return bool(self.compra_filamento_id or self.compra_insumo_id or self.despesa_id)
+        return bool(self.compra_filamento_id or self.compra_insumo_id or self.despesa_id or self.da_venda)
+
+    @property
+    def da_venda(self):
+        return bool(self.feira_id or self.venda_interna_id or self.pedido_id)
 
     @property
     def em_fatura(self):

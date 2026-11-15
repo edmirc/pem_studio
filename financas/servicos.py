@@ -142,3 +142,96 @@ def gerar_parcelas_manuais(dados, n):
             parcela=i if n > 1 else None, parcelas=n if n > 1 else None,
             pago_em=dados.get('pago_em') if i == 1 else None))
     return criados
+
+
+# ---------------------------------------------------------------------------
+# Vendas -> recebimentos (valor líquido, já sem a taxa da maquininha)
+# ---------------------------------------------------------------------------
+def taxas_maquininha(Configuracao=None):
+    """{forma: taxa %} das Configurações (débito e crédito à vista)."""
+    if Configuracao is None:
+        from encomendas.models import Configuracao
+    cfg = Configuracao.objects.order_by('pk').first()
+    if not cfg:
+        return {'DEBITO': Decimal('0.89'), 'CREDITO': Decimal('3.15')}
+    return {'DEBITO': cfg.taxa_debito, 'CREDITO': cfg.taxa_credito_1x}
+
+
+NOMES_FORMA = {'PIX': 'Pix', 'DEBITO': 'Débito', 'CREDITO': 'Crédito', 'DINHEIRO': 'Dinheiro'}
+
+
+def _liquido(bruto, forma, taxas):
+    taxa = (Decimal(bruto) * taxas.get(forma, D0) / 100).quantize(Decimal('0.01'))
+    return Decimal(bruto) - taxa, taxa
+
+
+def _obs(bruto, taxa):
+    from painel.utils import brl
+    return f'Bruto {brl(bruto)} · taxa da maquininha {brl(taxa)}' if taxa else ''
+
+
+def gerar_da_feira(feira, Lancamento=None, Feiras=None, taxas=None):
+    """Um recebimento por forma de pagamento da feira, na data da feira."""
+    if Lancamento is None:
+        from .models import Lancamento
+    if Feiras is None:
+        from vendas.models import Feiras
+    taxas = taxas or taxas_maquininha()
+    existentes = Lancamento.objects.filter(feira=feira)
+    mexidos = set(existentes.filter(baixa_automatica=False).values_list('forma', flat=True))
+    existentes.filter(baixa_automatica=True).delete()
+    totais = (Feiras.objects.filter(nomeFeira=feira).order_by().values('pagment')
+              .annotate(t=models_sum('value')))
+    for l in totais:
+        forma, bruto = l['pagment'], l['t'] or D0
+        if not bruto or forma in mexidos:
+            continue
+        liquido, taxa = _liquido(bruto, forma, taxas)
+        Lancamento.objects.create(
+            tipo='RECEBER', categoria='VENDA', valor=liquido, vencimento=feira.date, pago_em=feira.date,
+            descricao=f'Vendas {feira.name} · {NOMES_FORMA.get(forma, forma)}'[:200], feira=feira, forma=forma,
+            observacao=_obs(bruto, taxa), baixa_automatica=True)
+
+
+def gerar_da_venda_interna(venda, Lancamento=None, taxas=None):
+    if Lancamento is None:
+        from .models import Lancamento
+    existente = Lancamento.objects.filter(venda_interna=venda).first()
+    if existente and not existente.baixa_automatica:
+        return  # foi ajustado à mão (ex.: virou fiado): não mexe
+    if existente:
+        existente.delete()
+    if not venda.valor:
+        return
+    taxas = taxas or taxas_maquininha()
+    liquido, taxa = _liquido(venda.valor, venda.pagment, taxas)
+    qnt = venda.qnt if venda.qnt is not None else 1
+    desc = f'Venda direta: {qnt}× {venda.product.product}' if qnt else f'Sinal de encomenda: {venda.product.product}'
+    Lancamento.objects.create(
+        tipo='RECEBER', categoria='VENDA', valor=liquido, vencimento=venda.date, pago_em=venda.date,
+        descricao=desc[:200], venda_interna=venda, cliente_id=venda.client_id, forma=venda.pagment,
+        observacao=_obs(venda.valor, taxa), baixa_automatica=True)
+
+
+def models_sum(campo):
+    from django.db.models import Sum
+    return Sum(campo)
+
+
+def gerar_do_sinal(pedido, Lancamento=None):
+    """Sinal recebido de uma encomenda entra no caixa na data em que foi pago."""
+    if Lancamento is None:
+        from .models import Lancamento
+    existente = Lancamento.objects.filter(pedido=pedido).first()
+    if existente and not existente.baixa_automatica:
+        return
+    if existente:
+        existente.delete()
+    if not pedido.sinal_recebido or pedido.vendas_geradas:
+        return
+    liquido, taxa = _liquido(pedido.sinal_recebido, pedido.sinal_forma, taxas_maquininha())
+    data = pedido.sinal_data or timezone.localdate()
+    Lancamento.objects.create(
+        tipo='RECEBER', categoria='VENDA', valor=liquido, vencimento=data, pago_em=data,
+        descricao=f'Sinal da encomenda {pedido.numero}'[:200], pedido=pedido, cliente_id=pedido.cliente_id,
+        forma=pedido.sinal_forma, observacao=_obs(pedido.sinal_recebido, taxa), baixa_automatica=True)

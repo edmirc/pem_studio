@@ -452,6 +452,8 @@ input[type=checkbox].campo { width: auto; min-height: 0; }
 .f-data { font-weight: 600; }
 .f-valor { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; }
 .fatura .tabela { margin: 10px 0; }
+.form-saldo { display: grid; gap: 8px; }
+.form-saldo label { display: grid; gap: 4px; font-size: .85rem; font-weight: 600; }
 .saldo-grande { font-size: 2rem; font-weight: 700; margin: 0 0 10px; font-variant-numeric: tabular-nums; }
 .mei { margin-top: 4px; }
 .faixa-fin { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-bottom: 18px; }

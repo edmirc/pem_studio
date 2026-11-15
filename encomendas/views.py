@@ -314,7 +314,9 @@ def pedido_acao(request, pk, acao):
             p.sinal_forma = forma
             p.sinal_data = timezone.localdate()
             p.save(update_fields=['sinal_recebido', 'sinal_forma', 'sinal_data'])
-            messages.success(request, 'Sinal registrado.')
+            from financas.servicos import gerar_do_sinal
+            gerar_do_sinal(p)
+            messages.success(request, 'Sinal registrado (já entrou no caixa).')
     elif acao == 'entregar':
         forma = request.POST.get('forma')
         if forma not in dict(FormaPagamento.choices):

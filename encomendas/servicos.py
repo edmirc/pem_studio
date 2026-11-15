@@ -120,7 +120,7 @@ def entregar_pedido(pedido, forma_final, data=None):
     forma_sinal = pedido.sinal_forma or forma_final
 
     for (produto, qnt, valor), p_sinal in zip(linhas, partes_sinal):
-        if forma_sinal == forma_final or not p_sinal:
+        if not p_sinal:
             VendasInternas.objects.create(date=data, client=pedido.cliente, product=produto, qnt=qnt,
                                           valor=valor, pagment=forma_final)
         else:
@@ -130,6 +130,10 @@ def entregar_pedido(pedido, forma_final, data=None):
             if valor - p_sinal:
                 VendasInternas.objects.create(date=data, client=pedido.cliente, product=produto, qnt=qnt,
                                               valor=valor - p_sinal, pagment=forma_final)
+
+    # o sinal agora está nas vendas (com a data dele): sai o lançamento provisório do sinal
+    from financas.models import Lancamento
+    Lancamento.objects.filter(pedido=pedido).delete()
 
     pedido.status = StatusPedido.ENTREGUE
     pedido.forma_final = forma_final

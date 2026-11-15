@@ -5,7 +5,8 @@
   <p class="migalha"><a href="{% url 'financas:contas' %}?tipo={{ tipo }}">Contas a pagar e receber</a></p>
   <h1>{% if obj %}Editar lançamento{% elif tipo == 'RECEBER' %}Nova conta a receber{% else %}Nova conta a pagar{% endif %}</h1></div></div>
 <form method="post" class="cartao formulario" novalidate>{% csrf_token %}
-  {% if obj.automatico %}<div class="aviso warning">Este lançamento vem de uma compra. Para mudar valor ou parcelas, edite a compra; aqui dá para ajustar vencimento, situação e observação.</div>{% endif %}
+  {% if obj.da_venda %}<div class="aviso warning">Este recebimento vem das vendas e é atualizado sozinho. Se você mudar algo aqui (por exemplo, desmarcar "já recebido" porque foi fiado), ele deixa de ser atualizado automaticamente.</div>
+  {% elif obj.automatico %}<div class="aviso warning">Este lançamento vem de uma compra. Para mudar valor ou parcelas, edite a compra; aqui dá para ajustar vencimento, situação e observação.</div>{% endif %}
   {{ form.tipo }}
   <div class="grade-campos">
     {% for campo in form %}{% if campo.name != 'tipo' and campo.name != 'ja_pago' %}{% include 'encomendas/parciais/campo.html' %}{% endif %}{% endfor %}

@@ -12,7 +12,6 @@ from django.views.decorators.http import require_POST
 
 from cadastro.models import Contas
 from encomendas.models import ETAPAS, Configuracao, Pedido
-from vendas.models import Feiras, VendasInternas
 
 from .models import Categoria, DespesaFixa, Lancamento, SaldoCaixa, TipoLancamento
 from .servicos import gerar_parcelas_manuais, gerar_recorrentes, somar_meses
@@ -213,7 +212,7 @@ def lancamento_acao(request, acao):
     elif acao == 'apagar':
         auto = [l for l in qs if l.automatico]
         if auto:
-            messages.error(request, 'Lançamentos de compras são apagados apagando a compra.')
+            messages.error(request, 'Lançamentos automáticos (de compras e vendas) somem quando a compra ou a venda é apagada.')
         else:
             qs.delete()
             messages.success(request, 'Lançamento apagado.')
@@ -251,20 +250,6 @@ def faturas(request):
 # ---------------------------------------------------------------------------
 # Fluxo de caixa
 # ---------------------------------------------------------------------------
-def _vendas_liquidas(de, ate):
-    """Entradas de vendas entre duas datas, já sem a taxa estimada da maquininha."""
-    cfg = Configuracao.atual()
-    taxa = {'DEBITO': cfg.taxa_debito, 'CREDITO': cfg.taxa_credito_1x}
-    total = D0
-    for qs, campo_data, campo_valor in ((Feiras.objects.all(), 'nomeFeira__date', 'value'),
-                                        (VendasInternas.objects.all(), 'date', 'valor')):
-        for l in qs.filter(**{f'{campo_data}__gt': de, f'{campo_data}__lte': ate}).order_by() \
-                   .values('pagment').annotate(t=Sum(campo_valor)):
-            bruto = l['t'] or D0
-            total += bruto * (1 - taxa.get(l['pagment'], D0) / 100)
-    return total.quantize(Decimal('0.01'))
-
-
 @login_required
 def fluxo(request):
     ctx = _contexto_base(request, menu='fluxo')
@@ -275,7 +260,11 @@ def fluxo(request):
             texto = texto.replace('.', '').replace(',', '.')
         try:
             valor = Decimal(texto)
-            SaldoCaixa.objects.create(valor=valor, data=hoje, observacao=request.POST.get('observacao', '')[:200])
+            try:
+                data = timezone.datetime.strptime(request.POST.get('data') or '', '%Y-%m-%d').date()
+            except ValueError:
+                data = hoje
+            SaldoCaixa.objects.create(valor=valor, data=min(data, hoje), observacao=request.POST.get('observacao', '')[:200])
             messages.success(request, 'Saldo atualizado.')
         except Exception:
             messages.error(request, 'Digite o saldo em reais, ex.: 1520,50')
@@ -287,11 +276,14 @@ def fluxo(request):
     base = saldo.valor if saldo else D0
     base_data = saldo.data if saldo else hoje
 
-    # o que já aconteceu desde o saldo informado
-    pagos = Lancamento.objects.filter(pago_em__gt=base_data, pago_em__lte=hoje)
+    # o que já aconteceu desde o saldo informado (que é o do começo daquele dia):
+    # vendas, sinais e recebimentos entram sozinhos como lançamentos recebidos
+    pagos = Lancamento.objects.filter(pago_em__gte=base_data, pago_em__lte=hoje)
     saidas_real = pagos.filter(tipo='PAGAR').aggregate(t=Sum('valor'))['t'] or D0
-    entradas_real = (pagos.filter(tipo='RECEBER').aggregate(t=Sum('valor'))['t'] or D0) + _vendas_liquidas(base_data, hoje)
+    entradas_real = pagos.filter(tipo='RECEBER').aggregate(t=Sum('valor'))['t'] or D0
     saldo_hoje = base + entradas_real - saidas_real
+    ultimas_entradas = (Lancamento.objects.filter(tipo='RECEBER', pago_em__gte=base_data, pago_em__lte=hoje)
+                        .order_by('-pago_em', '-id')[:8])
 
     # o que está previsto daqui para frente (atrasados contam como hoje)
     fim = hoje + timedelta(days=dias)
@@ -328,7 +320,7 @@ def fluxo(request):
     proximos = sorted(((dt, l) for dt, v in mov.items() for l in v['itens'] if dt <= hoje + timedelta(days=14)),
                       key=lambda t: (t[0], t[1].tipo))
     ctx.update({
-        'saldo': saldo, 'saldo_hoje': saldo_hoje, 'entradas_real': entradas_real, 'saidas_real': saidas_real,
+        'saldo': saldo, 'saldo_hoje': saldo_hoje, 'ultimas_entradas': ultimas_entradas, 'entradas_real': entradas_real, 'saidas_real': saidas_real,
         'semanas': semanas, 'dias': dias, 'opcoes_dias': [30, 60, 90, 180], 'minimo': minimo, 'hoje': hoje,
         'final': acumulado, 'proximos': [l for _, l in proximos][:25],
         'grafico': {'rotulos': ['hoje'] + [f'{s["ate"]:%d/%m}' for s in semanas],

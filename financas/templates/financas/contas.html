@@ -29,7 +29,7 @@
   <a class="aba {% if tipo == 'RECEBER' %}ativa{% endif %}" href="?tipo=RECEBER&periodo={{ periodo }}">A receber</a>
 </div>
 <div class="chips-filtro">
-  {% for k, n in periodos.items %}<a class="chip {% if k == periodo %}ativo{% endif %}" href="?tipo={{ tipo }}&periodo={{ k }}">{{ n }}</a>{% endfor %}
+  {% for k, n in periodos.items %}<a class="chip {% if k == periodo %}ativo{% endif %}" href="?tipo={{ tipo }}&periodo={{ k }}">{% if k == 'pagas' and tipo == 'RECEBER' %}Recebidas no mês{% else %}{{ n }}{% endif %}</a>{% endfor %}
 </div>
 
 <div class="cartao tabela-rolavel">
@@ -57,7 +57,7 @@
         <tr class="sit-{{ l.situacao }}">
           <td>{{ l.vencimento|date:"d/m/Y" }}</td>
           <td>{{ l.descricao }} {% if l.nome_parcela %}<small class="muted">{{ l.nome_parcela }}</small>{% endif %}
-            <small class="muted d-bloco">{{ l.get_categoria_display }}{% if l.cliente %} · {{ l.cliente }}{% endif %}{% if l.recorrente %} · despesa fixa{% endif %}{% if l.automatico %} · da compra{% endif %}</small></td>
+            <small class="muted d-bloco">{{ l.get_categoria_display }}{% if l.cliente %} · {{ l.cliente }}{% endif %}{% if l.recorrente %} · despesa fixa{% endif %}{% if l.da_venda %} · automático{% elif l.automatico %} · da compra{% endif %}{% if l.observacao %} · {{ l.observacao }}{% endif %}</small></td>
           <td>{{ l.conta|default:"—" }}</td>
           <td class="num"><b class="{% if tipo == 'RECEBER' %}positivo{% endif %}">{{ l.valor|brl }}</b></td>
           <td><span class="selo selo-sit-{{ l.situacao }}">{% if l.situacao == 'pago' %}{% if tipo == 'PAGAR' %}Pago{% else %}Recebido{% endif %} {{ l.pago_em|date:"d/m" }}{% elif l.situacao == 'atrasado' %}Atrasado{% elif l.situacao == 'hoje' %}Vence hoje{% else %}Em aberto{% endif %}</span></td>
@@ -94,5 +94,5 @@
     {% if linhas or pedidos %}<tfoot><tr class="total"><td colspan="3">Total</td><td class="num">{{ total|brl }}</td><td colspan="2"></td></tr></tfoot>{% endif %}
   </table>
 </div>
-<p class="dica">As compras de filamento, insumos e outras despesas entram aqui sozinhas. No cartão de crédito, cada parcela vai para a fatura do mês certo.</p>
+<p class="dica">Entram sozinhos: as compras (no cartão, cada parcela na fatura certa) e as vendas das feiras, vendas diretas e sinais de encomenda, como recebidos, já sem a taxa da maquininha. Veja em "A receber" → "Recebidas no mês".</p>
 {% endblock %}

@@ -20,16 +20,22 @@
     <p class="saldo-grande {% if saldo_hoje < 0 %}negativo{% endif %}">{{ saldo_hoje|brl }}</p>
     {% if saldo %}
       <table class="tabela compacta">
-        <tr><td>Saldo informado em {{ saldo.data|date:"d/m" }}</td><td class="num">{{ saldo.valor|brl }}</td></tr>
+        <tr><td>Saldo no começo de {{ saldo.data|date:"d/m" }}</td><td class="num">{{ saldo.valor|brl }}</td></tr>
         <tr><td>+ vendas e recebimentos desde então</td><td class="num positivo">{{ entradas_real|brl }}</td></tr>
         <tr><td>− contas pagas desde então</td><td class="num">{{ saidas_real|brl }}</td></tr>
       </table>
+      {% if ultimas_entradas %}
+      <h4 class="sub-titulo">Últimas entradas</h4>
+      <ul class="lista-simples">{% for l in ultimas_entradas %}<li><span>{{ l.descricao }}</span><small><b class="positivo">+ {{ l.valor|brl }}</b> · {{ l.pago_em|date:"d/m" }}</small></li>{% endfor %}</ul>
+      {% endif %}
     {% else %}<p class="muted">Informe quanto vocês têm hoje (somando contas e dinheiro em caixa) para a previsão partir do valor certo.</p>{% endif %}
-    <form method="post" class="form-compacto" style="margin-top:12px">{% csrf_token %}
-      <input class="campo" name="valor" placeholder="Saldo de hoje, ex.: 1520,50" inputmode="decimal" required>
+    <form method="post" class="form-saldo" style="margin-top:12px">{% csrf_token %}
+      <label>Quanto havia nas contas e no caixa no começo do dia
+        <input class="campo" name="valor" placeholder="ex.: 1520,50" inputmode="decimal" required></label>
+      <label>Dia <input class="campo" type="date" name="data" value="{{ hoje|date:'Y-m-d' }}" max="{{ hoje|date:'Y-m-d' }}"></label>
       <button class="botao" type="submit">Atualizar saldo</button>
     </form>
-    <p class="dica">Atualize de vez em quando (olhando o app do banco) para a previsão não se distanciar da realidade. Vendas em débito e crédito entram já sem a taxa da maquininha.</p>
+    <p class="dica">As vendas (feiras, vendas diretas e sinais de encomenda) entram sozinhas, já sem a taxa da maquininha. Informe o saldo do começo do dia (antes das vendas de hoje) e atualize de vez em quando olhando o app do banco.</p>
   </div>
 </div>
 
