@@ -1,0 +1,40 @@
+{% extends 'painel/base.html' %}
+{% load painel_tags %}
+{% block titulo %}Kits{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <div><p class="migalha">Cadastros</p><h1>Kits</h1>
+    <p class="sub">O kit não tem estoque próprio: quando um kit é vendido, sai do estoque cada peça dele.</p></div>
+  <div class="acoes"><a class="botao primario" href="{% url 'producao:kit_novo' %}">+ Novo kit</a></div>
+</div>
+
+{% if linhas %}
+<div class="cartao tabela-rolavel">
+  <table class="tabela tabela-kits">
+    <thead><tr><th>Kit</th><th>Peças</th><th class="num">Custo</th><th class="num">Preço</th><th class="num">Lucro</th>
+      <th class="num">Dá para montar</th><th></th></tr></thead>
+    <tbody>
+    {% for l in linhas %}
+      <tr>
+        <td><a href="{% url 'producao:kit' l.k.pk %}">{{ l.k.produto|com_foto }}</a></td>
+        <td class="kit-pecas">{% for p in l.pecas %}<span>{{ p.qnt }}× {{ p.peca|com_foto }}</span>{% empty %}<span class="muted">sem peças</span>{% endfor %}</td>
+        <td class="num">{{ l.calc.custo|brl }}{% if l.calc.sem_custo %}<small class="negativo bloco">{{ l.calc.sem_custo|length }} peça{{ l.calc.sem_custo|length|pluralize }} sem custo</small>{% endif %}</td>
+        <td class="num">{% if l.calc.preco %}<b>{{ l.calc.preco|brl }}</b>{% if l.calc.desconto and l.calc.desconto > 0 %}<small class="muted bloco">{{ l.calc.desconto }}% abaixo do avulso</small>{% endif %}{% else %}<span class="muted">sem preço</span>{% endif %}</td>
+        <td class="num">{% if l.calc.lucro is not None %}<span class="{% if l.calc.lucro < 0 %}negativo{% else %}positivo{% endif %}">{{ l.calc.lucro|brl }}</span>{% if l.calc.margem is not None %}<small class="muted bloco">{{ l.calc.margem }}% sobre o custo</small>{% endif %}{% else %}<span class="muted">—</span>{% endif %}</td>
+        <td class="num"><b class="{% if not l.possiveis %}negativo{% endif %}">{{ l.possiveis }}</b>
+          {% if l.limitante %}<small class="muted bloco">{% if l.possiveis %}limitado por{% else %}falta{% endif %} {{ l.limitante.peca }}</small>{% endif %}</td>
+        <td class="acoes-linha"><a href="{% url 'producao:kit' l.k.pk %}">Editar</a>
+          {% if l.limitante %}<a href="{% url 'producao:nova' %}?produto={{ l.limitante.peca_id }}">Imprimir peça</a>{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="cartao vazio-grande">
+  <p><b>Nenhum kit ainda.</b></p>
+  <p class="muted">Cadastre as peças como produtos normais, depois monte o kit escolhendo as peças e a quantidade de cada uma.</p>
+  <a class="botao primario" href="{% url 'producao:kit_novo' %}">+ Novo kit</a>
+</div>
+{% endif %}
+{% endblock %}

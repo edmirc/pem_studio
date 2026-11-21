@@ -1,0 +1,19 @@
+{% if arq %}
+{% if compacto %}
+<span class="a3-compacto">
+  {% for f in arq.fatiadores|slice:":1" %}<a href="{{ f.url }}" title="{{ arq.caminho }}">Abrir no {{ f.nome }}</a>{% endfor %}
+  <a href="{{ arq.pasta }}" title="{{ arq.caminho }}">Pasta</a>
+</span>
+{% else %}
+<div class="arquivo3d">
+  <p class="a3-caminho"><b>{{ arq.nome }}</b><code>{{ arq.caminho }}</code></p>
+  <div class="a3-botoes">
+    {% for f in arq.fatiadores %}<a class="botao {% if forloop.first %}primario{% endif %}" href="{{ f.url }}">Abrir no {{ f.nome }}</a>{% endfor %}
+    {% if not arq.e_3d %}<a class="botao" href="{{ arq.padrao }}">Abrir</a>{% endif %}
+    <a class="botao" href="{{ arq.pasta }}">Abrir a pasta</a>
+    <button type="button" class="botao" data-copiar="{{ arq.caminho }}">Copiar caminho</button>
+  </div>
+  <small class="muted">Os botões de abrir funcionam nos computadores Windows com o <a href="{% url 'painel:ferramenta_abrir' %}">atalho do PEM Studio</a> instalado (uma vez em cada computador).</small>
+</div>
+{% endif %}
+{% endif %}

@@ -1,0 +1,100 @@
+{% extends 'painel/base.html' %}
+{% load static painel_tags %}
+{% block titulo %}{% if kit %}{{ produto.product }}{% else %}Novo kit{% endif %}{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <div><p class="migalha"><a href="{% url 'producao:kits' %}">Kits</a></p>
+    <h1>{% if kit %}{{ produto.product }}{% else %}Novo kit{% endif %}</h1>
+    <p class="sub">Escolha as peças, some a montagem e defina o preço. O kit não tem estoque: quando vende, sai cada peça.</p></div>
+</div>
+
+<form method="post" enctype="multipart/form-data" id="form-kit" novalidate>{% csrf_token %}
+<div class="kit-grade">
+  <div class="kit-principal">
+    <section class="cartao">
+      <div class="fp-grade">
+        <div class="fp-foto">
+          <label for="f-foto" class="caixa-foto {% if produto.imagem %}tem-foto{% endif %}" id="caixa-foto">
+            {% if produto.imagem %}<img src="{{ produto.url_foto }}" alt="Foto do kit" id="previa">{% else %}<img alt="" id="previa" hidden>{% endif %}
+            <span class="cf-texto">{% if produto.imagem %}Trocar a foto{% else %}Foto do kit{% endif %}<small>escolha, arraste ou cole (Ctrl+V)</small></span>
+          </label>
+          <input type="file" name="foto" id="f-foto" accept="image/*" class="visualmente-oculto">
+          {% if produto.imagem %}<label class="caixa-marcar"><input type="checkbox" name="remover_foto" value="1"> Tirar a foto</label>{% endif %}
+        </div>
+        <div class="grade-campos">
+          <div class="grupo-campo largo {% if erros.nome %}com-erro{% endif %}"><label for="f-nome">Nome do kit <span class="obrig">*</span></label>
+            <input class="campo" name="nome" id="f-nome" maxlength="200" required value="{{ v.nome|default:'' }}" placeholder="Ex.: Kit Batizado 3 peças">
+            {% if erros.nome %}<small class="erro">{{ erros.nome }}</small>{% endif %}</div>
+          <div class="grupo-campo"><label for="f-cat">Categoria</label>
+            <select class="campo" name="categoria" id="f-cat">
+              {% if not tem_cat_kits %}<option value="">Kits (nova)</option>{% endif %}
+              {% for c in categorias %}<option value="{{ c.pk }}" {% if v.categoria|stringformat:'s' == c.pk|stringformat:'s' %}selected{% endif %}>{{ c.category }}</option>{% endfor %}
+            </select></div>
+          <div class="grupo-campo largo"><label for="f-obs">Observação</label>
+            <input class="campo" name="observacao" id="f-obs" maxlength="300" value="{{ v.observacao|default:'' }}" placeholder="Ex.: montar na caixa kraft com laço"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="cartao {% if erros.pecas %}com-erro{% endif %}">
+      <h3 class="titulo-cartao">Peças do kit</h3>
+      <div class="rolar-x"><table class="tabela tabela-pecas-kit">
+        <thead><tr><th>Peça</th><th class="num">Qtd.</th><th class="num">Custo</th><th class="num">Preço avulso</th><th class="num">Disponível</th><th></th></tr></thead>
+        <tbody id="pecas"></tbody>
+      </table></div>
+      <div class="kit-adicionar">
+        <select class="campo" id="nova-peca" aria-label="Escolher peça para adicionar">
+          <option value="">+ Adicionar peça…</option>
+        </select>
+      </div>
+      {% if erros.pecas %}<small class="erro">{{ erros.pecas }}</small>{% endif %}
+      <p class="muted kit-dica">As peças são os produtos cadastrados (cada uma impressa e com estoque próprio). Peça nova? Cadastre em <a href="{% url 'painel:novo' 'produtos' %}" target="_blank">Produtos</a> e recarregue esta página.</p>
+    </section>
+
+    <section class="cartao">
+      <h3 class="titulo-cartao">Montagem</h3>
+      <div class="grade-campos tres">
+        <div class="grupo-campo"><label for="f-emb">Embalagem (R$)</label>
+          <input class="campo" name="embalagem" id="f-emb" inputmode="decimal" value="{{ v.embalagem|default:'' }}" placeholder="0,00"></div>
+        <div class="grupo-campo"><label for="f-outros">Outros insumos (R$)</label>
+          <input class="campo" name="outros" id="f-outros" inputmode="decimal" value="{{ v.outros|default:'' }}" placeholder="fita, laço, cartão"></div>
+        <div class="grupo-campo"><label for="f-min">Tempo de montagem (min)</label>
+          <input class="campo" type="number" min="0" name="minutos" id="f-min" inputmode="numeric" value="{{ v.minutos|default:'' }}" placeholder="0">
+          <small class="dica">Sua hora de trabalho: {{ hora_valor|brl }} (em Configurações).</small></div>
+      </div>
+    </section>
+  </div>
+
+  <aside class="kit-lateral">
+    <section class="cartao kit-preco">
+      <h3 class="titulo-cartao">Preço do kit</h3>
+      <dl class="kit-contas">
+        <dt>Custo das peças</dt><dd id="r-pecas">R$ 0,00</dd>
+        <dt>Montagem</dt><dd id="r-mao">R$ 0,00</dd>
+        <dt>Embalagem e insumos</dt><dd id="r-emb">R$ 0,00</dd>
+        <dt class="total">Custo do kit</dt><dd class="total" id="r-custo">R$ 0,00</dd>
+        <dt>Peças vendidas avulsas</dt><dd id="r-avulso">R$ 0,00</dd>
+      </dl>
+      <p class="aviso-ocupada" id="r-sem-custo" hidden></p>
+      <label for="f-preco" class="kit-rotulo-preco">Preço de venda do kit</label>
+      <input class="campo campo-preco" name="preco" id="f-preco" inputmode="decimal" value="{{ v.preco|default:'' }}" placeholder="0,00">
+      <div class="kit-atalhos" id="atalhos"></div>
+      <p class="kit-resultado" id="r-resultado"></p>
+      <p class="kit-montar" id="r-montar"></p>
+    </section>
+    <div class="barra-botoes">
+      {% if kit %}<button class="botao perigo" type="submit" form="form-apagar">Apagar kit</button>{% endif %}
+      <a class="botao" href="{% url 'producao:kits' %}">Cancelar</a>
+      <button class="botao primario" type="submit">Salvar kit</button>
+    </div>
+  </aside>
+</div>
+</form>
+{% if kit %}
+<form method="post" action="{% url 'producao:kit_apagar' kit.pk %}" id="form-apagar" onsubmit="return confirm('Apagar este kit? As peças continuam cadastradas.')">{% csrf_token %}</form>
+{% endif %}
+{{ info|json_script:"info-pecas" }}
+{{ linhas|json_script:"linhas-kit" }}
+{{ hora|json_script:"valor-hora" }}
+{% endblock %}
+{% block scripts %}<script src="{% static 'painel/js/kit.js' %}"></script>{% endblock %}

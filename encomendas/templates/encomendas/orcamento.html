@@ -47,7 +47,7 @@
   <p><strong>Cliente:</strong> {{ o.nome_exibicao }}{% if o.telefone_exibicao %} · {{ o.telefone_exibicao }}{% endif %}</p>
   <table class="tabela">
     <thead><tr><th>Item</th><th class="num">Qtd.</th><th class="num">Unitário</th><th class="num">Total</th></tr></thead>
-    {% for i in itens %}<tr><td>{{ i.nome }}</td><td class="num">{{ i.qnt }}</td><td class="num">{{ i.preco_unitario|brl }}</td><td class="num">{{ i.total|brl }}</td></tr>{% endfor %}
+    {% for i in itens %}<tr><td>{{ i.produto|com_foto:i.nome }}</td><td class="num">{{ i.qnt }}</td><td class="num">{{ i.preco_unitario|brl }}</td><td class="num">{{ i.total|brl }}</td></tr>{% endfor %}
     {% if o.desconto or o.frete %}<tr><td colspan="3">Subtotal</td><td class="num">{{ o.subtotal|brl }}</td></tr>{% endif %}
     {% if o.desconto %}<tr><td colspan="3">Desconto</td><td class="num">- {{ o.desconto|brl }}</td></tr>{% endif %}
     {% if o.frete %}<tr><td colspan="3">Entrega</td><td class="num">{{ o.frete|brl }}</td></tr>{% endif %}

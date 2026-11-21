@@ -123,7 +123,7 @@ def orcamento_da_calc(request):
 # ---------------------------------------------------------------------------
 @login_required
 def orcamentos(request):
-    qs = Orcamento.objects.select_related('cliente').prefetch_related('itens')
+    qs = Orcamento.objects.select_related('cliente').prefetch_related('itens__produto')
     status = request.GET.get('status', '')
     q = request.GET.get('q', '').strip()
     if status:
@@ -254,7 +254,7 @@ def orcamento_acao(request, pk, acao):
 @login_required
 def pedidos(request):
     ativos = list(Pedido.objects.filter(status__in=ETAPAS).select_related('cliente', 'orcamento__solicitacao')
-                  .prefetch_related('itens', 'orcamento__solicitacao__anexos'))
+                  .prefetch_related('itens__produto', 'orcamento__solicitacao__anexos'))
     colunas = [{'status': s, 'nome': s.label, 'pedidos': [p for p in ativos if p.status == s]} for s in ETAPAS]
     hoje = timezone.localdate()
     entregues = Pedido.objects.filter(status=StatusPedido.ENTREGUE, entregue_em__gte=hoje - timedelta(days=30)) \
@@ -268,8 +268,12 @@ def pedidos(request):
 @login_required
 def pedido(request, pk):
     p = get_object_or_404(Pedido.objects.select_related('cliente', 'orcamento'), pk=pk)
+    from producao.servicos import andamento_item
+    itens = list(p.itens.select_related('produto').prefetch_related('impressoes'))
+    for i in itens:
+        i.producao = andamento_item(i)
     return render(request, 'encomendas/pedido.html', {
-        'menu': 'pedidos', 'p': p, 'itens': p.itens.select_related('produto'),
+        'menu': 'pedidos', 'p': p, 'itens': itens, 'em_producao': p.status in ETAPAS,
         'etapas': [{'s': s, 'nome': s.label, 'feito': ETAPAS.index(s) <= ETAPAS.index(p.status)
                     if p.status in ETAPAS else p.status == StatusPedido.ENTREGUE} for s in ETAPAS],
         'formas': FormaPagamento.choices, 'hoje': timezone.localdate(),

@@ -18,7 +18,7 @@
       <article class="cartao-pedido {% if p.atrasado %}atrasado{% elif p.dias_para_prazo <= 2 %}urgente{% endif %}">
         {% with c=p.orcamento.solicitacao.capa %}{% if c %}<a href="{% url 'encomendas:pedido' p.pk %}"><img class="cp-capa" src="{% url 'encomendas:arquivo_tipo' c.pk 'mini' %}" alt="" loading="lazy"></a>{% endif %}{% endwith %}
         <a href="{% url 'encomendas:pedido' p.pk %}" class="cp-topo"><strong>{{ p.cliente }}</strong><small>{{ p.numero }}</small></a>
-        <ul>{% for i in p.itens.all|slice:":3" %}<li>{{ i.qnt }}× {{ i.nome }}</li>{% endfor %}{% if p.itens.all|length > 3 %}<li class="muted">+ {{ p.itens.all|length|add:-3 }} ite{{ p.itens.all|length|add:-3|pluralize:"m,ns" }}</li>{% endif %}</ul>
+        <ul>{% for i in p.itens.all|slice:":3" %}<li>{{ i.qnt }}× {{ i.produto|com_foto:i.nome }}</li>{% endfor %}{% if p.itens.all|length > 3 %}<li class="muted">+ {{ p.itens.all|length|add:-3 }} ite{{ p.itens.all|length|add:-3|pluralize:"m,ns" }}</li>{% endif %}</ul>
         <div class="cp-info">
           <span class="prazo">{% if p.atrasado %}Atrasado {{ p.dias_atraso }} dia{{ p.dias_atraso|pluralize }}{% elif p.dias_para_prazo == 0 %}Entrega hoje{% elif p.dias_para_prazo == 1 %}Amanhã{% else %}{{ p.prazo|date:"d/m" }}{% endif %}</span>
           <span>{% if p.falta_receber %}falta {{ p.falta_receber|brl }}{% else %}pago{% endif %}</span>

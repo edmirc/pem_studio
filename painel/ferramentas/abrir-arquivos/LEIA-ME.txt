@@ -1,0 +1,25 @@
+PEM Studio - abrir arquivos 3D direto do sistema
+================================================
+
+Para que serve
+  Na ficha do produto (e na tela de impressão) aparecem os botões
+  "Abrir pasta", "Creality Print", "Bambu Studio" e "Snapmaker Orca". Eles abrem o arquivo
+  que está no servidor (pela rede do Samba) direto no Explorador ou no fatiador.
+
+Como instalar (uma vez em cada computador Windows)
+  1. Extraia esta pasta em qualquer lugar.
+  2. Dê dois cliques em instalar.cmd.
+  3. No sistema, clique num botão "Abrir pasta". O navegador pergunta se pode
+     abrir o "PEM Studio": marque "Sempre permitir" e clique em Abrir.
+
+Precisa de administrador? Não. Instala só para o seu usuário.
+
+Os fatiadores são procurados sozinhos em "C:\Program Files\Creality",
+"C:\Program Files\Bambu Studio" e "C:\Program Files\snapmaker_orca". Se estiverem em outro lugar, abra o arquivo
+%LOCALAPPDATA%\PEMStudio\abrir.ps1 no Bloco de Notas e preencha o caminho
+nas primeiras linhas.
+
+Segurança: o atalho só abre arquivos 3D (3mf, stl, obj, step, gcode...).
+Qualquer outro tipo de arquivo só é mostrado na pasta, nunca executado.
+
+Para remover: dê dois cliques em desinstalar.cmd.

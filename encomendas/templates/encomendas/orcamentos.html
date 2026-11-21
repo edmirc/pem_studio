@@ -26,7 +26,7 @@
         <td><a href="{% url 'encomendas:orcamento' o.pk %}">{{ o.numero }}</a></td>
         <td>{{ o.data|date:"d/m/Y" }}</td>
         <td>{{ o.nome_exibicao }}</td>
-        <td class="muted">{% for i in o.itens.all|slice:":2" %}{{ i.qnt }}× {{ i.nome }}{% if not forloop.last %}, {% endif %}{% endfor %}{% if o.itens.all|length > 2 %} …{% endif %}</td>
+        <td class="muted">{% for i in o.itens.all|slice:":2" %}{{ i.qnt }}× {{ i.produto|com_foto:i.nome }}{% if not forloop.last %}, {% endif %}{% endfor %}{% if o.itens.all|length > 2 %} …{% endif %}</td>
         <td class="num">{{ o.total|brl }}</td>
         <td><span class="selo selo-{{ o.status|lower }}">{{ o.get_status_display }}</span></td>
         <td class="{% if o.vencido %}negativo{% endif %}">{{ o.validade|date:"d/m"|default:"—" }}{% if o.vencido %} (vencido){% endif %}</td>

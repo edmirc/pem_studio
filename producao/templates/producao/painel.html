@@ -1,0 +1,150 @@
+{% extends 'painel/base.html' %}
+{% load painel_tags %}
+{% block titulo %}Impressão{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <div><p class="migalha">Produção</p><h1>Impressão</h1>
+    <p class="sub">{{ k.imprimindo }} imprimindo · {{ fila|length }} na fila · {{ acabamento|length }} no acabamento</p></div>
+  <div class="acoes">
+    <a class="botao" href="{% url 'producao:estoque' %}">Estoque</a>
+    <a class="botao primario" href="{% url 'producao:nova' %}">+ Nova impressão</a>
+  </div>
+</div>
+
+<div class="kpis">
+  <div class="cartao kpi"><span>Imprimindo agora</span><strong>{{ k.imprimindo }} de {{ impressoras|length }}</strong>
+    <small class="muted">{% if livres %}{{ livres|length }} livre{{ livres|length|pluralize }}{% else %}todas ocupadas{% endif %}</small></div>
+  <div class="cartao kpi"><span>Peças prontas no mês</span><strong>{{ k.prontas }}</strong></div>
+  <div class="cartao kpi"><span>Peças perdidas no mês</span><strong class="{% if k.perdidas %}negativo{% endif %}">{{ k.perdidas }}</strong>
+    <small class="muted">{{ k.falhas }} impress{{ k.falhas|pluralize:"ão falhou,ões falharam" }}</small></div>
+  <div class="cartao kpi"><span>Horas de máquina no mês</span><strong>{{ k.horas|num:1 }} h</strong></div>
+</div>
+
+<h2 class="titulo-secao">Impressoras</h2>
+<div class="maquinas">
+  {% for m in impressoras %}
+  <article class="cartao maquina {% if m.atual %}{% if m.atual.atrasada %}atrasada{% else %}ocupada{% endif %}{% else %}livre{% endif %}">
+    <header class="maq-topo">
+      <div><strong>{{ m.nome }}</strong>{% if m.modelo %}<small class="muted">{{ m.modelo }}</small>{% endif %}</div>
+      {% if m.atual %}<span class="selo selo-imprimindo">Imprimindo</span>{% else %}<span class="selo selo-livre">Livre</span>{% endif %}
+    </header>
+    {% if m.atual %}{% with i=m.atual %}
+      <p class="maq-peca">{% if i.produto.miniatura %}<img class="lp-foto" src="{{ i.produto.url_mini }}" alt="" loading="lazy">{% endif %}<b>{{ i.qnt }}× {{ i.nome }}</b>
+        <small class="muted">{% if i.pedido %}para <a href="{% url 'encomendas:pedido' i.pedido.pk %}">{{ i.pedido.numero }} · {{ i.pedido.cliente }}</a>{% elif i.vai_para_estoque %}para o estoque{% endif %}</small>
+        {% if i.produto.arquivo %}{% arquivo3d i.produto i.impressora True %}{% endif %}</p>
+      {% if i.progresso is not None %}
+        <div class="progresso" role="progressbar" aria-valuenow="{{ i.progresso }}" aria-valuemin="0" aria-valuemax="100"><i style="width: {{ i.progresso }}%"></i></div>
+        <p class="maq-tempo {% if i.atrasada %}negativo{% endif %}">{% if i.atrasada %}Já deveria ter terminado ({{ i.previsao_fim|time:"H:i" }}){% else %}Termina por volta das {{ i.previsao_fim|time:"H:i" }}{% if i.previsao_fim|date:"Ymd" != hoje_ymd %} de {{ i.previsao_fim|date:"d/m" }}{% endif %}{% endif %}</p>
+      {% else %}
+        <p class="maq-tempo muted">Começou às {{ i.iniciado_em|time:"H:i" }}</p>
+      {% endif %}
+      <div class="maq-acoes">
+        <form method="post" action="{% url 'producao:acao' i.pk 'impresso' %}">{% csrf_token %}
+          <button class="botao primario" type="submit">Terminou de imprimir</button></form>
+        {% include 'producao/parciais/falhou.html' %}
+      </div>
+      <form method="post" action="{% url 'producao:acao' i.pk 'voltar' %}" class="maq-desfazer">{% csrf_token %}
+        <button class="link pequeno" type="submit">Voltar para a fila</button></form>
+    {% endwith %}{% else %}
+      {% if fila %}
+        <form method="post" class="maq-proxima" onsubmit="this.action=this.querySelector('select').value">{% csrf_token %}
+          <input type="hidden" name="impressora" value="{{ m.pk }}">
+          <select class="campo" aria-label="Escolher o que imprimir na {{ m.nome }}">
+            {% for f in fila %}{% if not f.impressora_id or f.impressora_id == m.pk %}<option value="{% url 'producao:acao' f.pk 'iniciar' %}">{{ f.qnt }}× {{ f.nome }}{% if f.tempo_texto %} · {{ f.tempo_texto }}{% endif %}</option>{% endif %}{% endfor %}
+            {% for f in fila %}{% if f.impressora_id and f.impressora_id != m.pk %}<option value="{% url 'producao:acao' f.pk 'iniciar' %}">{{ f.qnt }}× {{ f.nome }} (era da {{ f.impressora }})</option>{% endif %}{% endfor %}
+          </select>
+          <button class="botao" type="submit">Começar aqui</button>
+        </form>
+      {% else %}
+        <p class="muted maq-vazia">Nada na fila. <a href="{% url 'producao:nova' %}">Mandar uma impressão</a></p>
+      {% endif %}
+    {% endif %}
+    {% if m.proximas %}<p class="maq-depois muted">Depois: {% for f in m.proximas|slice:":3" %}{{ f.nome }}{% if not forloop.last %}, {% endif %}{% endfor %}{% if m.proximas|length > 3 %} e mais {{ m.proximas|length|add:-3 }}{% endif %}</p>{% endif %}
+  </article>
+  {% endfor %}
+  {% for i in soltas %}
+  <article class="cartao maquina ocupada">
+    <header class="maq-topo"><strong>{{ i.impressora|default:"Sem impressora" }}</strong><span class="selo selo-imprimindo">Imprimindo</span></header>
+    <p class="maq-peca"><b>{{ i.qnt }}× {{ i.nome }}</b></p>
+    <div class="maq-acoes"><form method="post" action="{% url 'producao:acao' i.pk 'impresso' %}">{% csrf_token %}<button class="botao primario" type="submit">Terminou de imprimir</button></form></div>
+  </article>
+  {% endfor %}
+</div>
+
+<div class="duas-colunas largura-2-1">
+  <div>
+    <section class="cartao">
+      <h3 class="titulo-cartao">Acabamento <small class="muted">impresso, falta terminar a peça</small></h3>
+      {% for i in acabamento %}
+        <div class="linha-prod">
+          <div class="lp-info">{% if i.produto.miniatura %}<img class="lp-foto" src="{{ i.produto.url_mini }}" alt="" loading="lazy">{% endif %}<b>{{ i.qnt }}× {{ i.nome }}</b>
+            <small class="muted">{{ i.impressora|default:"" }}{% if i.impresso_em %} · impresso {{ i.impresso_em|date:"d/m H:i" }}{% endif %}{% if i.pedido %} · <a href="{% url 'encomendas:pedido' i.pedido.pk %}">{{ i.pedido.numero }}</a>{% endif %}</small></div>
+          <form method="post" action="{% url 'producao:acao' i.pk 'pronta' %}" class="lp-pronta">{% csrf_token %}
+            <label>Boas <input class="campo" type="number" name="boas" min="0" max="{{ i.qnt }}" value="{{ i.qnt }}" inputmode="numeric"> de {{ i.qnt }}</label>
+            <button class="botao primario" type="submit">{% if i.vai_para_estoque %}Pronta, pôr no estoque{% else %}Peça pronta{% endif %}</button>
+          </form>
+          <div class="lp-mais">
+            {% include 'producao/parciais/falhou.html' %}
+            <form method="post" action="{% url 'producao:acao' i.pk 'voltar' %}">{% csrf_token %}<button class="link pequeno" type="submit">Desfazer</button></form>
+          </div>
+        </div>
+      {% empty %}<p class="vazio">Nada esperando acabamento.</p>{% endfor %}
+    </section>
+
+    <section class="cartao">
+      <h3 class="titulo-cartao">Na fila <small class="muted">{{ fila|length }}</small></h3>
+      {% for i in fila %}
+        <div class="linha-prod">
+          <div class="lp-info">{% if i.produto.miniatura %}<img class="lp-foto" src="{{ i.produto.url_mini }}" alt="" loading="lazy">{% endif %}<b>{{ i.qnt }}× {{ i.nome }}</b>
+            <small class="muted">{% if i.tempo_texto %}{{ i.tempo_texto }}{% endif %}{% if i.gramas %} · {{ i.gramas|num }} g{% endif %}{% if i.pedido %} · <a href="{% url 'encomendas:pedido' i.pedido.pk %}">{{ i.pedido.numero }} · entregar {{ i.pedido.prazo|date:"d/m" }}</a>{% elif i.vai_para_estoque %} · para o estoque{% endif %}{% if i.observacao %} · {{ i.observacao }}{% endif %}</small>
+            {% if i.produto.arquivo %}{% arquivo3d i.produto i.impressora True %}{% endif %}</div>
+          <form method="post" action="{% url 'producao:acao' i.pk 'iniciar' %}" class="lp-pronta">{% csrf_token %}
+            <select class="campo" name="impressora" required aria-label="Impressora">
+              {% for m in impressoras %}<option value="{{ m.pk }}" {% if m.pk == i.impressora_id %}selected{% endif %}>{{ m.nome }}{% if m.atual %} (ocupada){% endif %}</option>{% endfor %}
+            </select>
+            <button class="botao" type="submit">Começar</button>
+          </form>
+          <form method="post" action="{% url 'producao:acao' i.pk 'cancelar' %}" class="lp-mais" onsubmit="return confirm('Tirar {{ i.nome|escapejs }} da fila?')">{% csrf_token %}
+            <button class="link pequeno" type="submit">Tirar da fila</button></form>
+        </div>
+      {% empty %}<p class="vazio">Fila vazia. <a href="{% url 'producao:nova' %}">+ Nova impressão</a></p>{% endfor %}
+    </section>
+  </div>
+
+  <div>
+    <section class="cartao">
+      <h3 class="titulo-cartao">Precisa imprimir <small class="muted">abaixo do mínimo</small></h3>
+      <ul class="lista-simples">
+        {% for x in precisa %}
+          <li><a href="{% url 'producao:produto' x.produto.pk %}">{{ x.produto|com_foto }}</a>
+            <small>tem {{ x.disponivel }}, mínimo {{ x.minimo }}{% if x.producao %} · {{ x.producao }} em produção{% endif %}</small>
+            {% if x.falta %}<a class="botao pequeno" href="{% url 'producao:nova' %}?produto={{ x.produto.pk }}&qnt={{ x.falta }}">Imprimir {{ x.falta }}</a>{% endif %}</li>
+        {% empty %}<li class="vazio">Nenhum produto abaixo do mínimo. Defina os mínimos na tela de <a href="{% url 'producao:estoque' %}">Estoque</a>.</li>{% endfor %}
+      </ul>
+    </section>
+
+    <section class="cartao">
+      <h3 class="titulo-cartao">Últimas concluídas</h3>
+      <ul class="lista-simples lista-concl">
+        {% for i in recentes %}
+          <li><span>{{ i.nome }} <span class="selo selo-{{ i.status|lower }}">{{ i.get_status_display }}</span></span>
+            <small>{% if i.status == 'PRONTA' %}{{ i.qnt_boas }} de {{ i.qnt }} boa{{ i.qnt_boas|pluralize }}{% elif i.status == 'FALHOU' %}{{ i.qnt }} perdida{{ i.qnt|pluralize }}{% endif %}{% if i.impressora %} · {{ i.impressora }}{% endif %} · {{ i.concluido_em|date:"d/m H:i" }}</small>
+            <span class="acoes-linha">
+              <form method="post" action="{% url 'producao:acao' i.pk 'repetir' %}">{% csrf_token %}<button class="link pequeno" type="submit">Imprimir de novo</button></form>
+              <form method="post" action="{% url 'producao:acao' i.pk 'voltar' %}">{% csrf_token %}<button class="link pequeno" type="submit">Desfazer</button></form>
+            </span></li>
+        {% empty %}<li class="vazio">Nenhuma ainda.</li>{% endfor %}
+      </ul>
+    </section>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+  // atualiza a página a cada 2 minutos (as barras de progresso andam), sem atrapalhar quem está digitando
+  setInterval(() => {
+    const a = document.activeElement;
+    if (!a || !['INPUT', 'SELECT', 'TEXTAREA'].includes(a.tagName)) if (!document.querySelector('details[open]')) location.reload();
+  }, 120000);
+</script>
+{% endblock %}

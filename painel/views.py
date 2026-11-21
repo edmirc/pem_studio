@@ -64,8 +64,18 @@ def inicio(request):
         'atrasado': atrasadas.aggregate(t=Sum('valor'))['t'] or 0, 'atrasado_n': atrasadas.count(),
         'semana': semana.aggregate(t=Sum('valor'))['t'] or 0, 'semana_n': semana.count(),
     }
+    from producao.models import Impressao, StatusImpressao
+    from producao.servicos import precisa_imprimir
+    from encomendas.models import Impressora
+    imprimindo = {i.impressora_id: i for i in Impressao.objects.filter(status=StatusImpressao.IMPRIMINDO)
+                  .select_related('produto', 'item_pedido')}
+    maquinas = [{'m': m, 'i': imprimindo.get(m.pk)} for m in Impressora.objects.filter(ativa=True)]
     return render(request, 'painel/inicio.html', {
         'menu': 'inicio',
+        'maquinas': maquinas,
+        'na_fila': Impressao.objects.filter(status=StatusImpressao.FILA).count(),
+        'no_acabamento': Impressao.objects.filter(status=StatusImpressao.IMPRESSO).count(),
+        'precisa': precisa_imprimir(limite=5),
         'fin': fin,
         'mei': _mei(ano, sum(m['receita'] for m in meses)),
         'pedidos_semana': pedidos_ativos,
@@ -131,9 +141,13 @@ def pdv(request, pk):
     produtos = sorted(Product.objects.select_related('category'),
                       key=lambda p: (-(mais_vendidos.get(p.id) or 0), p.product.lower()))
     ctx = _ctx_vendas_feira(feira)
+    from producao.servicos import kits_possiveis, reservados, saldos
+    estoque = saldos()
+    kits = kits_possiveis(estoque, reservados())
     ctx.update({
         'menu': 'pdv',
-        'produtos': [{'p': p, 'preco': precos.get(p.id)} for p in produtos],
+        'produtos': [{'p': p, 'preco': precos.get(p.id), 'kit': kits.get(p.id),
+                      'estoque': None if p.id in kits else estoque.get(p.id)} for p in produtos],
         'categorias': Category.objects.all(),
         'formas': FormaPagamento.choices,
     })

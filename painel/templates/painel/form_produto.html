@@ -1,0 +1,90 @@
+{% extends 'painel/base.html' %}
+{% load painel_tags %}
+{% block titulo %}{% if obj %}Editar{% else %}Novo{% endif %} produto{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <div>
+    <p class="migalha"><a href="{% url 'painel:lista' cfg.slug %}">{{ cfg.titulo }}</a></p>
+    <h1>{% if obj %}{{ obj.product }}{% else %}Novo produto{% endif %}</h1>
+  </div>
+  {% if obj %}<div class="acoes"><a class="botao" href="{% url 'producao:produto' obj.pk %}">Ver estoque</a>
+    <a class="botao" href="{% url 'producao:nova' %}?produto={{ obj.pk }}">Imprimir</a></div>{% endif %}
+</div>
+
+<form method="post" class="cartao formulario form-produto" enctype="multipart/form-data" novalidate>
+  {% csrf_token %}
+  <input type="hidden" name="proximo" value="{{ proximo }}">
+  {% if form.non_field_errors %}<div class="aviso error">{{ form.non_field_errors|join:" " }}</div>{% endif %}
+
+  <div class="fp-grade">
+    <div class="fp-foto">
+      <label for="{{ form.foto.id_for_label }}" class="caixa-foto {% if obj.imagem %}tem-foto{% endif %}" id="caixa-foto">
+        {% if obj.imagem %}<img src="{{ obj.url_foto }}" alt="Foto de {{ obj.product }}" id="previa">{% else %}<img alt="" id="previa" hidden>{% endif %}
+        <span class="cf-texto">{% if obj.imagem %}Trocar a foto{% else %}Escolher foto{% endif %}<small>ou cole uma imagem (Ctrl+V)</small></span>
+      </label>
+      <input type="file" name="foto" id="{{ form.foto.id_for_label }}" accept="image/*" class="visualmente-oculto">
+      {% for e in form.foto.errors %}<small class="erro">{{ e }}</small>{% endfor %}
+      {% if obj.imagem %}<label class="caixa-marcar"><input type="checkbox" name="remover_foto" value="1"> Tirar a foto</label>{% endif %}
+    </div>
+
+    <div class="grade-campos">
+      {% for campo in form %}{% if campo.name in 'product category' %}
+        <div class="grupo-campo {% if campo.errors %}com-erro{% endif %}" id="g-{{ campo.name }}">
+          <label for="{{ campo.id_for_label }}">{{ campo.label }} <span class="obrig">*</span></label>
+          {{ campo }}
+          {% for e in campo.errors %}<small class="erro">{{ e }}</small>{% endfor %}
+        </div>
+      {% endif %}{% endfor %}
+      <div class="grupo-campo largo {% if form.arquivo.errors %}com-erro{% endif %}" id="g-arquivo">
+        <label for="{{ form.arquivo.id_for_label }}">{{ form.arquivo.label }}</label>
+        {{ form.arquivo }}
+        <small class="dica">{{ form.arquivo.help_text }} De preferência o caminho de rede (\\192.168.3.190\…), que funciona em qualquer computador.</small>
+        {% for e in form.arquivo.errors %}<small class="erro">{{ e }}</small>{% endfor %}
+      </div>
+    </div>
+  </div>
+
+  {% if obj.arquivo %}{% arquivo3d obj %}{% endif %}
+
+  <div class="barra-botoes">
+    <a class="botao" href="{% if proximo %}{{ proximo }}{% else %}{% url 'painel:lista' cfg.slug %}{% endif %}">Cancelar</a>
+    {% if not obj %}<button class="botao" type="submit" name="salvar_e_novo">Salvar e cadastrar outro</button>{% endif %}
+    <button class="botao primario" type="submit">Salvar</button>
+  </div>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  const input = document.getElementById('{{ form.foto.id_for_label }}');
+  const previa = document.getElementById('previa'), caixa = document.getElementById('caixa-foto');
+  function mostrar(arquivo) {
+    if (!arquivo || !arquivo.type.startsWith('image/')) return;
+    previa.src = URL.createObjectURL(arquivo); previa.hidden = false;
+    caixa.classList.add('tem-foto');
+    caixa.querySelector('.cf-texto').firstChild.textContent = 'Trocar a foto';
+  }
+  input.addEventListener('change', () => mostrar(input.files[0]));
+  // colar uma imagem (print da tela do fatiador, foto do WhatsApp…)
+  document.addEventListener('paste', e => {
+    const item = [...(e.clipboardData || {}).items || []].find(i => i.type.startsWith('image/'));
+    if (!item) return;
+    e.preventDefault();
+    const f = item.getAsFile();
+    const arq = new File([f], 'colada.' + (f.type.split('/')[1] || 'png'), { type: f.type });
+    const dt = new DataTransfer(); dt.items.add(arq); input.files = dt.files;
+    mostrar(arq);
+  });
+  // arrastar e soltar na caixa
+  ['dragover', 'drop'].forEach(ev => caixa.addEventListener(ev, e => {
+    e.preventDefault();
+    if (ev === 'drop' && e.dataTransfer.files[0]) {
+      const dt = new DataTransfer(); dt.items.add(e.dataTransfer.files[0]); input.files = dt.files; mostrar(input.files[0]);
+    }
+  }));
+  // tirar as aspas do "Copiar como caminho" do Windows
+  const arq = document.getElementById('{{ form.arquivo.id_for_label }}');
+  arq.addEventListener('change', () => { arq.value = arq.value.trim().replace(/^"+|"+$/g, ''); });
+})();
+</script>
+{% endblock %}

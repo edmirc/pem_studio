@@ -1,0 +1,92 @@
+{% extends 'painel/base.html' %}
+{% load painel_tags %}
+{% block titulo %}Estoque · {{ prod }}{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <div><p class="migalha"><a href="{% url 'producao:estoque' %}">Estoque</a></p><h1>{{ prod.product }}</h1>
+    <p class="sub">{{ prod.category }}{% if pr %} · preço {{ pr.vanda|default:pr.sugerido|brl }}{% if pr.custo %} · custo {{ pr.custo|brl }}{% endif %}{% endif %} · {{ vendidos_90 }} vendido{{ vendidos_90|pluralize }} nos últimos 90 dias</p></div>
+  <div class="acoes">
+    <a class="botao" href="{% url 'painel:editar' 'produtos' prod.pk %}">Editar produto</a>
+    <a class="botao primario" href="{% url 'producao:nova' %}?produto={{ prod.pk }}">Imprimir</a>
+  </div>
+</div>
+
+{% if prod.imagem or prod.arquivo %}
+<div class="cartao ficha-produto">
+  {% if prod.imagem %}<a href="{{ prod.url_foto }}" target="_blank" class="fp-imagem"><img src="{{ prod.url_mini }}" alt="Foto de {{ prod.product }}"></a>{% endif %}
+  <div class="fp-arquivo">{% if prod.arquivo %}{% arquivo3d prod %}{% else %}<p class="muted">Sem arquivo 3D cadastrado. <a href="{% url 'painel:editar' 'produtos' prod.pk %}">Colocar o caminho do arquivo</a></p>{% endif %}</div>
+</div>
+{% endif %}
+
+<div class="kpis">
+  <div class="cartao kpi"><span>Em estoque</span><strong class="{% if saldo < 0 %}negativo{% endif %}">{{ saldo }}</strong></div>
+  <div class="cartao kpi"><span>Reservado para pedidos</span><strong>{{ reservado }}</strong></div>
+  <div class="cartao kpi {% if minimo and disponivel < minimo %}kpi-alerta{% endif %}"><span>Disponível</span><strong>{{ disponivel }}</strong>
+    <small class="muted">{% if minimo %}mínimo {{ minimo }}{% else %}sem mínimo definido{% endif %}</small></div>
+  <div class="cartao kpi"><span>Em produção</span><strong>{{ andamento|length }}</strong><small class="muted">impress{{ andamento|length|pluralize:"ão,ões" }}</small></div>
+</div>
+
+<div class="duas-colunas largura-2-1">
+  <div class="cartao tabela-rolavel">
+    <h3 class="titulo-cartao">Entradas e saídas</h3>
+    <table class="tabela">
+      <thead><tr><th>Data</th><th>Movimento</th><th class="num">Qtd.</th><th class="num">Saldo</th><th></th></tr></thead>
+      {% for m in pagina %}
+        <tr>
+          <td>{{ m.data|date:"d/m/Y" }}</td>
+          <td>{{ m.get_tipo_display }}{% if m.observacao %}<small class="muted bloco">{{ m.observacao }}</small>{% endif %}</td>
+          <td class="num {% if m.qnt < 0 %}negativo{% else %}positivo{% endif %}">{% if m.qnt > 0 %}+{% endif %}{{ m.qnt }}</td>
+          <td class="num">{{ m.saldo_apos }}</td>
+          <td class="acoes-linha">{% if not m.automatico %}
+            <form method="post" onsubmit="return confirm('Apagar este lançamento?')">{% csrf_token %}
+              <input type="hidden" name="op" value="apagar"><input type="hidden" name="mov" value="{{ m.pk }}">
+              <button class="link pequeno perigo" type="submit">Apagar</button></form>{% endif %}</td>
+        </tr>
+      {% empty %}<tr><td colspan="5" class="vazio">Nenhuma entrada ou saída ainda. Faça a contagem do que tem na prateleira ao lado.</td></tr>{% endfor %}
+    </table>
+    {% if pagina.has_other_pages %}<p class="paginacao">
+      {% if pagina.has_previous %}<a href="?pagina={{ pagina.previous_page_number }}">‹ Mais recentes</a>{% endif %}
+      <span>Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span>
+      {% if pagina.has_next %}<a href="?pagina={{ pagina.next_page_number }}">Mais antigos ›</a>{% endif %}</p>{% endif %}
+  </div>
+
+  <div>
+    <section class="cartao">
+      <h3 class="titulo-cartao">Contei na prateleira</h3>
+      <form method="post" class="form-compacto">{% csrf_token %}<input type="hidden" name="op" value="contagem">
+        <input class="campo" type="number" name="contado" min="0" required placeholder="Quantas peças tem" inputmode="numeric">
+        <button class="botao primario" type="submit">Acertar estoque</button></form>
+      <small class="muted">O sistema lança a diferença para o saldo ficar igual ao que você contou.</small>
+    </section>
+
+    <section class="cartao">
+      <h3 class="titulo-cartao">Entrada ou saída manual</h3>
+      <form method="post" class="form-empilhado">{% csrf_token %}<input type="hidden" name="op" value="ajuste">
+        <div class="form-compacto">
+          <select class="campo" name="tipo">{% for v, n in tipos_ajuste %}<option value="{{ v }}">{{ n }}</option>{% endfor %}</select>
+          <input class="campo" type="number" name="qnt" min="1" value="1" required inputmode="numeric" aria-label="Quantidade">
+        </div>
+        <input class="campo" name="observacao" maxlength="300" placeholder="Motivo (ex.: brinde, quebrou na feira)">
+        <button class="botao" type="submit">Lançar</button></form>
+    </section>
+
+    <section class="cartao">
+      <h3 class="titulo-cartao">Estoque mínimo</h3>
+      <form method="post" class="form-compacto">{% csrf_token %}<input type="hidden" name="op" value="minimo">
+        <input class="campo" type="number" name="minimo" min="0" value="{{ minimo }}" inputmode="numeric" aria-label="Estoque mínimo">
+        <button class="botao" type="submit">Salvar</button></form>
+      <small class="muted">Abaixo disso, o produto aparece em "Precisa imprimir". Use 0 para não avisar.</small>
+    </section>
+
+    {% if andamento or reservas %}
+    <section class="cartao">
+      <h3 class="titulo-cartao">Em andamento</h3>
+      <ul class="lista-simples">
+        {% for i in andamento %}<li><span>{{ i.qnt }} peça{{ i.qnt|pluralize }} <span class="selo selo-{{ i.status|lower }}">{{ i.get_status_display }}</span></span><small>{{ i.impressora|default:"" }}</small></li>{% endfor %}
+        {% for it in reservas %}<li><a href="{% url 'encomendas:pedido' it.pedido.pk %}">{{ it.pedido.numero }} · {{ it.pedido.cliente }}</a><small>{{ it.qnt }} reservada{{ it.qnt|pluralize }}</small></li>{% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

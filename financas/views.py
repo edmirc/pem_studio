@@ -12,6 +12,7 @@ from django.views.decorators.http import require_POST
 
 from cadastro.models import Contas
 from encomendas.models import ETAPAS, Configuracao, Pedido
+from painel.utils import destino_seguro
 
 from .models import Categoria, DespesaFixa, Lancamento, SaldoCaixa, TipoLancamento
 from .servicos import gerar_parcelas_manuais, gerar_recorrentes, somar_meses
@@ -89,7 +90,8 @@ def contas(request):
     tipo = request.GET.get('tipo', 'PAGAR')
     if tipo not in ('PAGAR', 'RECEBER'):
         tipo = 'PAGAR'
-    periodo = request.GET.get('periodo', 'abertas')
+    # A receber abre no mês (recebidas + em aberto); a pagar abre no que está em aberto
+    periodo = request.GET.get('periodo') or ('mes' if tipo == 'RECEBER' else 'abertas')
     ini_mes = hoje.replace(day=1)
     prox_mes = somar_meses(ini_mes, 1)
 
@@ -149,6 +151,10 @@ def contas(request):
         'k_mes': soma(pagar_abertos.filter(vencimento__gte=hoje, vencimento__lt=prox_mes)),
         'k_receber': soma(receber_abertos.filter(vencimento__lte=hoje + timedelta(days=30))) + ped_30,
         'contas_pgto': Contas.objects.all(), 'hoje': hoje,
+        'r_recebido_mes': soma(Lancamento.objects.filter(tipo='RECEBER', pago_em__gte=ini_mes, pago_em__lt=prox_mes)),
+        'r_aberto': soma(receber_abertos) + sum((p['valor'] for p in _pedidos_a_receber()), D0),
+        'r_atrasado': soma(receber_abertos.filter(vencimento__lt=hoje)),
+        'r_atrasado_n': receber_abertos.filter(vencimento__lt=hoje).count(),
         'fixas_sem_valor': DespesaFixa.objects.filter(ativa=False).count(),
         'cartoes_sem_dia': Contas.objects.filter(operacao='CREDITO').filter(Q(dia_fechamento__isnull=True) | Q(dia_vencimento__isnull=True)).count(),
     })
@@ -179,9 +185,19 @@ def lancamento_editar(request, pk=None):
             dados = dict(d, pago_em=pago_em)
             gerar_parcelas_manuais(dados, n)
             messages.success(request, 'Lançamento criado' + (f' em {n} parcelas.' if n > 1 else '.'))
+        voltar = destino_seguro(request.POST.get('voltar'))
+        if voltar:
+            return redirect(voltar)
         return redirect(f"/financeiro/?tipo={d['tipo']}")
     tipo = (obj.tipo if obj else inicial['tipo'])
-    return render(request, 'financas/lancamento_form.html', _contexto_base(request, form=form, obj=obj, tipo=tipo))
+    # volta para a tela de onde veio (extrato, contas, faturas)
+    from urllib.parse import urlparse
+    ref = urlparse(request.META.get('HTTP_REFERER', ''))
+    voltar = destino_seguro(request.POST.get('voltar')) or (ref.path + (('?' + ref.query) if ref.query else '')
+                                             if ref.path.startswith('/financeiro') and '/editar' not in ref.path
+                                             and '/novo' not in ref.path else '')
+    return render(request, 'financas/lancamento_form.html',
+                  _contexto_base(request, form=form, obj=obj, tipo=tipo, voltar=voltar))
 
 
 @login_required
@@ -190,7 +206,7 @@ def lancamento_acao(request, acao):
     hoje = timezone.localdate()
     ids = request.POST.getlist('id')
     qs = Lancamento.objects.filter(pk__in=ids)
-    voltar = request.POST.get('voltar') or '/financeiro/'
+    voltar = destino_seguro(request.POST.get('voltar')) or '/financeiro/'
     if acao == 'pagar':
         try:
             data = timezone.datetime.strptime(request.POST.get('data') or '', '%Y-%m-%d').date()
@@ -216,8 +232,6 @@ def lancamento_acao(request, acao):
         else:
             qs.delete()
             messages.success(request, 'Lançamento apagado.')
-    if not voltar.startswith('/'):
-        voltar = '/financeiro/'
     return redirect(voltar)
 
 
@@ -268,11 +282,11 @@ def fluxo(request):
             messages.success(request, 'Saldo atualizado.')
         except Exception:
             messages.error(request, 'Digite o saldo em reais, ex.: 1520,50')
-        return redirect('financas:fluxo')
+        return redirect(destino_seguro(request.POST.get('voltar')) or 'financas:fluxo')
 
     dias = int(request.GET.get('dias', 90)) if request.GET.get('dias', '90').isdigit() else 90
     dias = min(max(dias, 30), 180)
-    saldo = SaldoCaixa.objects.first()
+    saldo = SaldoCaixa.objects.order_by('-data', '-id').first()
     base = saldo.valor if saldo else D0
     base_data = saldo.data if saldo else hoje
 
@@ -320,10 +334,139 @@ def fluxo(request):
     proximos = sorted(((dt, l) for dt, v in mov.items() for l in v['itens'] if dt <= hoje + timedelta(days=14)),
                       key=lambda t: (t[0], t[1].tipo))
     ctx.update({
-        'saldo': saldo, 'saldo_hoje': saldo_hoje, 'ultimas_entradas': ultimas_entradas, 'entradas_real': entradas_real, 'saidas_real': saidas_real,
+        'aba': 'previsao', 'saldo': saldo, 'saldo_hoje': saldo_hoje, 'ultimas_entradas': ultimas_entradas, 'entradas_real': entradas_real, 'saidas_real': saidas_real,
         'semanas': semanas, 'dias': dias, 'opcoes_dias': [30, 60, 90, 180], 'minimo': minimo, 'hoje': hoje,
         'final': acumulado, 'proximos': [l for _, l in proximos][:25],
         'grafico': {'rotulos': ['hoje'] + [f'{s["ate"]:%d/%m}' for s in semanas],
                     'saldo': [float(saldo_hoje)] + serie},
     })
     return render(request, 'financas/fluxo.html', ctx)
+
+
+# ---------------------------------------------------------------------------
+# Extrato (o que já entrou e saiu, com saldo ao fim de cada dia)
+# ---------------------------------------------------------------------------
+def _saldo_no_comeco(dia):
+    """Saldo no começo de um dia, a partir do último saldo informado (None se não houver)."""
+    s = SaldoCaixa.objects.order_by('-data', '-id').first()
+    if not s:
+        return None
+    def liquido(de, ate_excl):
+        q = Lancamento.objects.filter(pago_em__gte=de, pago_em__lt=ate_excl)
+        e = q.filter(tipo='RECEBER').aggregate(t=Sum('valor'))['t'] or D0
+        sai = q.filter(tipo='PAGAR').aggregate(t=Sum('valor'))['t'] or D0
+        return e - sai
+    if dia >= s.data:
+        return s.valor + liquido(s.data, dia)
+    return s.valor - liquido(dia, s.data)
+
+
+def _periodo_extrato(request, hoje):
+    p = request.GET.get('periodo', 'mes')
+    ini_mes = hoje.replace(day=1)
+    if p == 'anterior':
+        de = somar_meses(ini_mes, -1); ate = ini_mes - timedelta(days=1)
+    elif p == '7dias':
+        de, ate = hoje - timedelta(days=6), hoje
+    elif p == '30dias':
+        de, ate = hoje - timedelta(days=29), hoje
+    elif p == 'datas':
+        try:
+            de = timezone.datetime.strptime(request.GET.get('de', ''), '%Y-%m-%d').date()
+            ate = timezone.datetime.strptime(request.GET.get('ate', ''), '%Y-%m-%d').date()
+        except ValueError:
+            p, de, ate = 'mes', ini_mes, hoje
+    else:
+        p, de, ate = 'mes', ini_mes, hoje
+    if de > ate:
+        de, ate = ate, de
+    return p, de, min(ate, hoje)
+
+
+PERIODOS_EXTRATO = OrderedDict([('mes', 'Este mês'), ('anterior', 'Mês passado'), ('7dias', 'Últimos 7 dias'),
+                                ('30dias', 'Últimos 30 dias'), ('datas', 'Escolher datas')])
+
+
+@login_required
+def extrato(request):
+    if request.method == 'POST':  # informar saldo pelo endereço antigo
+        return fluxo(request)
+    ctx = _contexto_base(request, menu='fluxo')
+    hoje = timezone.localdate()
+    periodo, de, ate = _periodo_extrato(request, hoje)
+    tipo = request.GET.get('tipo', '')
+    q = request.GET.get('q', '').strip()
+
+    mov = (Lancamento.objects.filter(pago_em__gte=de, pago_em__lte=ate)
+           .select_related('conta', 'cliente').order_by('pago_em', 'tipo', 'id'))
+    tot_entradas = mov.filter(tipo='RECEBER').aggregate(t=Sum('valor'))['t'] or D0
+    tot_saidas = mov.filter(tipo='PAGAR').aggregate(t=Sum('valor'))['t'] or D0
+    saldo_ini = _saldo_no_comeco(de)
+
+    filtrado = mov
+    if tipo in ('RECEBER', 'PAGAR'):
+        filtrado = filtrado.filter(tipo=tipo)
+    if q:
+        filtrado = filtrado.filter(Q(descricao__icontains=q) | Q(observacao__icontains=q) | Q(cliente__name__icontains=q))
+
+    # agrupa por dia; faturas pagas no mesmo dia viram uma linha
+    dias = OrderedDict()
+    for l in filtrado:
+        d = dias.setdefault(l.pago_em, {'data': l.pago_em, 'linhas': [], 'faturas': {}, 'entra': D0, 'sai': D0})
+        if l.em_fatura:
+            chave = l.conta_id
+            if chave not in d['faturas']:
+                linha = {'fatura': True, 'conta': l.conta, 'itens': [], 'valor': D0, 'tipo': 'PAGAR'}
+                d['faturas'][chave] = linha
+                d['linhas'].append(linha)
+            d['faturas'][chave]['itens'].append(l)
+            d['faturas'][chave]['valor'] += l.valor
+        else:
+            d['linhas'].append({'fatura': False, 'l': l, 'valor': l.valor, 'tipo': l.tipo})
+        if l.tipo == 'RECEBER':
+            d['entra'] += l.valor
+        else:
+            d['sai'] += l.valor
+
+    # saldo ao fim de cada dia (sempre com todos os movimentos, mesmo filtrando a lista)
+    if saldo_ini is not None:
+        liquido_dia = defaultdict(lambda: D0)
+        for l in mov:
+            liquido_dia[l.pago_em] += l.valor if l.tipo == 'RECEBER' else -l.valor
+        corrente, x = saldo_ini, de
+        fim_do_dia = {}
+        while x <= ate:
+            corrente += liquido_dia.get(x, D0)
+            fim_do_dia[x] = corrente
+            x += timedelta(days=1)
+        for dia, info in dias.items():
+            info['saldo'] = fim_do_dia.get(dia)
+        saldo_fim = corrente
+    else:
+        saldo_fim = None
+
+    if request.GET.get('formato') == 'csv':
+        import csv
+        from django.http import HttpResponse
+        resp = HttpResponse(content_type='text/csv; charset=utf-8')
+        resp['Content-Disposition'] = f'attachment; filename="extrato_{de:%Y-%m-%d}_a_{ate:%Y-%m-%d}.csv"'
+        resp.write('﻿')  # acentos certos no Excel
+        w = csv.writer(resp, delimiter=';')
+        w.writerow(['Data', 'Tipo', 'Descrição', 'Categoria', 'Forma / conta', 'Cliente', 'Valor', 'Observação'])
+        for l in filtrado:
+            valor = (l.valor if l.tipo == 'RECEBER' else -l.valor)
+            w.writerow([l.pago_em.strftime('%d/%m/%Y'), 'Entrada' if l.tipo == 'RECEBER' else 'Saída', l.descricao,
+                        l.get_categoria_display(), l.get_forma_display() if l.forma else (str(l.conta) if l.conta else ''),
+                        str(l.cliente or ''), f'{valor:.2f}'.replace('.', ','), l.observacao])
+        return resp
+
+    params = request.GET.copy()
+    params.pop('formato', None)
+    ctx.update({
+        'aba': 'extrato', 'periodo': periodo, 'periodos': PERIODOS_EXTRATO, 'de': de, 'ate': ate,
+        'tipo': tipo, 'q': q, 'dias': [dias[k] for k in sorted(dias, reverse=True)],
+        'tot_entradas': tot_entradas, 'tot_saidas': tot_saidas, 'saldo_ini': saldo_ini, 'saldo_fim': saldo_fim,
+        'saldo': SaldoCaixa.objects.order_by('-data', '-id').first(), 'hoje': hoje,
+        'params': params.urlencode(), 'filtrando': bool(tipo or q),
+    })
+    return render(request, 'financas/extrato.html', ctx)

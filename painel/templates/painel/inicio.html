@@ -38,6 +38,24 @@
     <small class="muted">{{ mei.faturado|brl }} de {{ mei.limite|brl }}</small></a>
 </div>
 
+<div class="cartao faixa-producao">
+  <div class="fp-topo">
+    <h3 class="titulo-cartao"><a href="{% url 'producao:painel' %}">Impressoras</a></h3>
+    <small class="muted">{{ na_fila }} na fila · {{ no_acabamento }} no acabamento</small>
+  </div>
+  <ul class="fp-maquinas">
+    {% for x in maquinas %}
+      <li class="{% if x.i %}{% if x.i.atrasada %}atrasada{% else %}ocupada{% endif %}{% else %}livre{% endif %}">
+        <b>{{ x.m.nome }}</b>
+        <small>{% if x.i %}{{ x.i.nome }}{% if x.i.previsao_fim %} · {% if x.i.atrasada %}passou das {% else %}até {% endif %}{{ x.i.previsao_fim|time:"H:i" }}{% endif %}{% else %}livre{% endif %}</small></li>
+    {% endfor %}
+  </ul>
+  {% if precisa %}
+  <p class="fp-precisa"><b>Precisa imprimir:</b>
+    {% for x in precisa %}<a href="{% url 'producao:produto' x.produto.pk %}">{{ x.produto|com_foto }}</a> <small class="muted">({{ x.disponivel }}/{{ x.minimo }})</small>{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+  {% endif %}
+</div>
+
 {% if pedidos_em_producao or orcamentos_aguardando or solicitacoes_abertas %}
 <div class="cartao faixa-encomendas">
   <div class="fe-resumo">
@@ -80,7 +98,7 @@
   <div class="cartao">
     <h3 class="titulo-cartao">Mais vendidos no mês</h3>
     <table class="tabela compacta">
-      {% for p in produtos %}<tr><td>{{ p.produto }}</td><td class="num">{{ p.qnt }}×</td><td class="num">{{ p.total|brl }}</td></tr>
+      {% for p in produtos %}<tr><td>{{ p|com_foto }}</td><td class="num">{{ p.qnt }}×</td><td class="num">{{ p.total|brl }}</td></tr>
       {% empty %}<tr><td class="vazio">Sem vendas este mês.</td></tr>{% endfor %}
     </table>
   </div>

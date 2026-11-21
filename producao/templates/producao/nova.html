@@ -1,0 +1,87 @@
+{% extends 'painel/base.html' %}
+{% load static painel_tags %}
+{% block titulo %}Nova impressão{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <div><p class="migalha"><a href="{% url 'producao:painel' %}">Impressão</a></p><h1>Nova impressão</h1>
+    <p class="sub">Escolha a peça, confira o preço e mande para a impressora.</p></div>
+</div>
+
+<form method="post" id="form-nova" class="nova-impressao">{% csrf_token %}
+  <input type="hidden" name="calculo">
+  <input type="hidden" name="modo_produto" id="modo" value="{% if post.modo_produto %}{{ post.modo_produto }}{% elif inicial.item %}encomenda{% else %}catalogo{% endif %}">
+
+  <section class="cartao">
+    <h3 class="titulo-cartao">O que vai imprimir</h3>
+    <div class="abas-modo" role="tablist">
+      <button type="button" class="chip" data-modo="catalogo">Produto cadastrado</button>
+      <button type="button" class="chip" data-modo="novo">+ Produto novo</button>
+      <button type="button" class="chip" data-modo="encomenda">Peça de uma encomenda{% if itens %} ({{ itens|length }}){% endif %}</button>
+    </div>
+
+    <div data-painel="catalogo" class="grade-campos">
+      <div class="grupo-campo largo"><label for="f-produto">Produto</label>
+        <select class="campo" name="produto" id="f-produto">
+          <option value="">Escolha o produto…</option>
+          {% regroup produtos by category as grupos %}
+          {% for g in grupos %}<optgroup label="{{ g.grouper }}">{% for p in g.list %}<option value="{{ p.pk }}" {% if p.pk|stringformat:'s' == inicial.produto|stringformat:'s' %}selected{% endif %}>{{ p.product }}</option>{% endfor %}</optgroup>{% endfor %}
+        </select></div>
+    </div>
+
+    <div data-painel="novo" class="grade-campos" hidden>
+      <div class="grupo-campo largo"><label for="f-novo">Nome do produto novo</label>
+        <input class="campo" name="novo_produto" id="f-novo" maxlength="200" value="{{ post.novo_produto|default:'' }}" placeholder="Ex.: Vaso geométrico pequeno"></div>
+      <div class="grupo-campo"><label for="f-cat">Categoria</label>
+        <select class="campo" name="nova_categoria" id="f-cat">
+          <option value="">Escolha…</option>
+          {% for c in categorias %}<option value="{{ c.pk }}" {% if c.pk|stringformat:'s' == post.nova_categoria %}selected{% endif %}>{{ c.category }}</option>{% endfor %}
+        </select></div>
+    </div>
+
+    <div data-painel="encomenda" class="grade-campos" hidden>
+      <div class="grupo-campo largo"><label for="f-item">Item do pedido</label>
+        <select class="campo" name="item" id="f-item">
+          <option value="">Escolha o pedido…</option>
+          {% for x in itens %}<option value="{{ x.item.pk }}" {% if x.item.pk|stringformat:'s' == inicial.item|stringformat:'s' %}selected{% endif %}>{{ x.item.pedido.numero }} · {{ x.item.pedido.cliente }} · {{ x.item.qnt }}× {{ x.item.nome }}{% if x.falta %} (faltam {{ x.falta }}){% else %} (já está na produção){% endif %} · entregar {{ x.item.pedido.prazo|date:"d/m" }}</option>{% empty %}<option value="" disabled>Nenhum pedido em produção</option>{% endfor %}
+        </select></div>
+    </div>
+
+    <div class="info-produto" id="info-produto" hidden></div>
+  </section>
+
+  <section class="cartao">
+    <h3 class="titulo-cartao">Impressão e preço <small class="muted">use os números do fatiador</small></h3>
+    {% include 'encomendas/parciais/calculadora.html' %}
+  </section>
+
+  <section class="cartao enviar-fila">
+    <h3 class="titulo-cartao">Mandar para a fila</h3>
+    <div class="grade-campos">
+      <div class="grupo-campo"><label for="f-mesas">Quantas vezes imprimir esta mesa</label>
+        <input class="campo" type="number" name="mesas" id="f-mesas" min="1" max="20" value="{{ inicial.mesas|default:1 }}" inputmode="numeric"></div>
+      <div class="grupo-campo largo"><label for="f-obs">Observação <small class="muted">(cor, filamento, ajuste…)</small></label>
+        <input class="campo" name="observacao" id="f-obs" maxlength="300" value="{{ post.observacao|default:'' }}"></div>
+    </div>
+    <label class="caixa-marcar"><input type="checkbox" name="comecar" value="1" id="f-comecar" {% if not post or post.comecar %}checked{% endif %}>
+      <span>Já começar a imprimir na <b id="nome-impressora">impressora escolhida</b></span></label>
+    <p class="aviso-ocupada" id="aviso-ocupada" hidden></p>
+    <label class="caixa-marcar" id="linha-preco"><input type="checkbox" name="salvar_preco" value="1" id="f-preco">
+      <span>Salvar este preço na precificação do produto</span></label>
+    <p class="resumo-envio" id="resumo-envio"></p>
+    <div class="barra-botoes">
+      <a class="botao" href="{% url 'producao:painel' %}">Voltar</a>
+      <button class="botao primario" type="submit" id="b-enviar">Mandar para a fila</button>
+    </div>
+  </section>
+</form>
+{{ dados|json_script:"dados-calc" }}
+{{ info|json_script:"info-produtos" }}
+{{ info_itens|json_script:"info-itens" }}
+{{ ocupadas|json_script:"ocupadas" }}
+{{ fatiador_por_impressora|json_script:"fatiador-impressora" }}
+{{ inicial.calculo|json_script:"calc-inicial" }}
+{% endblock %}
+{% block scripts %}
+<script src="{% static 'painel/js/calculadora.js' %}"></script>
+<script src="{% static 'painel/js/nova-impressao.js' %}"></script>
+{% endblock %}

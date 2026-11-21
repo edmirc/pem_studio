@@ -1,0 +1,46 @@
+{% extends 'painel/base.html' %}
+{% load painel_tags %}
+{% block titulo %}Contagem do estoque{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <div><p class="migalha"><a href="{% url 'producao:estoque' %}">Estoque</a></p><h1>Contagem</h1>
+    <p class="sub">Conte o que tem na prateleira e digite. Deixe em branco o que não contou.</p></div>
+</div>
+
+<form method="get" class="filtros">
+  <select class="campo" name="categoria" onchange="this.form.submit()">
+    <option value="">Categoria: todas</option>
+    {% for c in categorias %}<option value="{{ c.pk }}" {% if c.pk == cat %}selected{% endif %}>{{ c.category }}</option>{% endfor %}
+  </select>
+</form>
+
+<form method="post">{% csrf_token %}
+  <div class="cartao tabela-rolavel">
+    <table class="tabela tabela-contagem">
+      <thead><tr><th>Produto</th><th class="num">No sistema</th><th class="num">Contei</th></tr></thead>
+      {% regroup linhas by p.category as grupos %}
+      {% for g in grupos %}
+        <tbody>
+          <tr class="grupo-linha"><th colspan="3">{{ g.grouper }}</th></tr>
+          {% for l in g.list %}
+            <tr><td><label for="c{{ l.p.pk }}">{{ l.p|com_foto }}</label></td>
+              <td class="num {% if l.saldo < 0 %}negativo{% endif %}">{{ l.saldo }}</td>
+              <td class="num"><input class="campo campo-contagem" type="number" min="0" id="c{{ l.p.pk }}" name="c_{{ l.p.pk }}" inputmode="numeric"></td></tr>
+          {% endfor %}
+        </tbody>
+      {% empty %}<tbody><tr><td colspan="3" class="vazio">Nenhum produto cadastrado.</td></tr></tbody>{% endfor %}
+    </table>
+  </div>
+  <div class="barra-botoes"><a class="botao" href="{% url 'producao:estoque' %}">Voltar</a>
+    <button class="botao primario" type="submit">Salvar contagem</button></div>
+</form>
+
+<section class="cartao estreito">
+  <h3 class="titulo-cartao">Desde quando as vendas contam</h3>
+  <p class="muted">Vendas com data anterior a esta não tiram peças do estoque. Assim, as vendas antigas não deixam tudo negativo.
+    Se mudar a data, as saídas das vendas são refeitas.</p>
+  <form method="post" class="form-compacto">{% csrf_token %}<input type="hidden" name="op" value="inicio">
+    <input class="campo" type="date" name="inicio" value="{{ cfg.inicio|date:'Y-m-d' }}" required>
+    <button class="botao" type="submit">Salvar data</button></form>
+</section>
+{% endblock %}

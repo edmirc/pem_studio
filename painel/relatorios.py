@@ -101,15 +101,24 @@ def por_pagamento(feiras, internas):
     return [{'nome': nomes.get(k, k), 'total': v} for k, v in totais.items()]
 
 
+def _url_mini(pk, arquivo):
+    if not arquivo:
+        return ''
+    from django.urls import reverse
+    return reverse('painel:produto_mini', args=[pk]) + '?v=' + arquivo.rsplit('/', 1)[-1][:40]
+
+
 def por_produto(feiras, internas):
     custos = dict(Precificacao.objects.values_list('product_id', 'custo'))
     dados = {}
     for qs, campo_valor, campo_qnt in ((feiras, 'value', 'qnt'), (internas, 'valor', Coalesce('qnt', 1))):
-        linhas = qs.order_by().values('product_id', 'product__product', 'product__category__category') \
+        linhas = qs.order_by().values('product_id', 'product__product', 'product__category__category',
+                                      'product__miniatura', 'product__imagem') \
                    .annotate(qnt=Sum(campo_qnt), total=Sum(campo_valor))
         for l in linhas:
             d = dados.setdefault(l['product_id'], {
                 'produto': l['product__product'], 'categoria': l['product__category__category'],
+                'mini': _url_mini(l['product_id'], l['product__miniatura'] or l['product__imagem']),
                 'qnt': 0, 'total': ZERO})
             d['qnt'] += l['qnt'] or 0
             d['total'] += l['total'] or ZERO

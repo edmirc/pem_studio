@@ -10,5 +10,6 @@ urlpatterns = [
     path('<int:pk>/editar/', views.lancamento_editar, name='editar'),
     path('acao/<slug:acao>/', views.lancamento_acao, name='acao'),
     path('faturas/', views.faturas, name='faturas'),
-    path('fluxo/', views.fluxo, name='fluxo'),
+    path('fluxo/', views.extrato, name='extrato'),
+    path('fluxo/previsao/', views.fluxo, name='fluxo'),
 ]

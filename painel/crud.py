@@ -24,7 +24,7 @@ from cadastro.models import (CadClientes, CadFeiras, Category, Contas, FilamentB
 from financas.models import CompraFilamento, CompraInsumo, Compras, DespesaFixa
 from vendas.models import Feiras, Precificacao, VendasFeiras, VendasInternas
 
-from .utils import brl, data_br, ler_mes, mes_anterior, mes_seguinte, nome_mes, num
+from .utils import brl, data_br, destino_seguro, ler_mes, mes_anterior, mes_seguinte, nome_mes, num
 
 
 # --------------------------------------------------------------------------
@@ -43,6 +43,11 @@ def _valor(obj, caminho):
 def _formatar(valor, tipo):
     if valor is None or valor == '':
         return '—'
+    if tipo == 'html':
+        return valor
+    if tipo == 'produto':
+        from painel.templatetags.painel_tags import com_foto
+        return com_foto(valor)
     if tipo == 'brl':
         return brl(valor)
     if tipo == 'data':
@@ -50,6 +55,14 @@ def _formatar(valor, tipo):
     if tipo == 'num':
         return num(valor, 0 if Decimal(valor) == int(valor) else 2)
     return str(valor)
+
+
+def produto_com_foto(obj):
+    from django.utils.html import format_html
+    selo = format_html(' <span class="selo selo-kit">kit</span>') if hasattr(obj, 'kit') else ''
+    if obj.miniatura or obj.imagem:
+        return format_html('<span class="nome-foto"><img src="{}" alt="" loading="lazy">{}{}</span>', obj.url_mini, obj.product, selo)
+    return format_html('<span class="nome-foto"><span class="sem-foto" aria-hidden="true"></span>{}{}</span>', obj.product, selo)
 
 
 def margem(obj):
@@ -84,8 +97,9 @@ CADASTROS = {
     ),
     'produtos': dict(
         model=Product, titulo='Produtos', singular='produto', menu='produtos', grupo='Cadastros',
-        campos=['product', 'category'], prefetch=['precificacao_set'],
-        colunas=[('product', 'Produto', None), ('category', 'Categoria', None),
+        campos=['product', 'category', 'arquivo'], prefetch=['precificacao_set'], select=['category', 'kit'],
+        form='painel.produtos.ProdutoForm', form_template='painel/form_produto.html', detalhe='producao:produto',
+        colunas=[(produto_com_foto, 'Produto', 'html'), ('category', 'Categoria', None),
                  (preco_venda, 'Preço de venda', None)],
         busca=['product', 'category__category'],
         filtros=[('category', 'Categoria', Category.objects.all)],
@@ -97,7 +111,8 @@ CADASTROS = {
     'precificacao': dict(
         model=Precificacao, titulo='Precificação', singular='precificação', fem=True, menu='precificacao', grupo='Cadastros',
         campos=['product', 'impressao', 'filament', 'embalagem', 'acessorios', 'vanda'],
-        colunas=[('product', 'Produto', None), ('impressao', 'Horas', 'num'), ('filament', 'Filamento', 'brl'),
+        select=['product'],
+        colunas=[('product', 'Produto', 'produto'), ('impressao', 'Horas', 'num'), ('filament', 'Filamento', 'brl'),
                  ('custo', 'Custo', 'brl'), ('sugerido', 'Sugerido', 'brl'), ('vanda', 'Venda', 'brl'),
                  (margem, 'Margem', None)],
         busca=['product__product'],
@@ -192,7 +207,8 @@ CADASTROS = {
     'vendas-internas': dict(
         model=VendasInternas, titulo='Vendas diretas', singular='venda', fem=True, menu='vendas-internas', grupo='Vendas',
         campos=['date', 'client', 'product', 'qnt', 'valor', 'pagment'],
-        colunas=[('date', 'Data', 'data'), ('client', 'Cliente', None), ('product', 'Produto', None),
+        select=['client', 'product'],
+        colunas=[('date', 'Data', 'data'), ('client', 'Cliente', None), ('product', 'Produto', 'produto'),
                  ('qnt', 'Qtd.', 'num'), ('valor', 'Valor', 'brl'), ('get_pagment_display', 'Pagamento', None)],
         busca=['client__name', 'product__product'],
         filtros=[('pagment', 'Pagamento', None)],
@@ -203,7 +219,8 @@ CADASTROS = {
     'vendas-feira': dict(
         model=Feiras, titulo='Vendas de feira', singular='venda de feira', fem=True, menu='vendas-feira', grupo='Vendas',
         campos=['nomeFeira', 'product', 'qnt', 'value', 'pagment'],
-        colunas=[('nomeFeira.date', 'Data', 'data'), ('nomeFeira.name', 'Feira', None), ('product', 'Produto', None),
+        select=['nomeFeira', 'product'],
+        colunas=[('nomeFeira.date', 'Data', 'data'), ('nomeFeira.name', 'Feira', None), ('product', 'Produto', 'produto'),
                  ('qnt', 'Qtd.', 'num'), ('value', 'Valor', 'brl'), ('get_pagment_display', 'Pagamento', None)],
         busca=['product__product', 'nomeFeira__name'],
         filtros=[('nomeFeira', 'Feira', lambda: CadFeiras.objects.order_by('-date')[:60]),
@@ -248,6 +265,9 @@ def _widget(campo_model, **kwargs):
 
 
 def form_para(cfg):
+    if cfg.get('form'):
+        from django.utils.module_loading import import_string
+        return import_string(cfg['form'])
     model = cfg['model']
     widgets = {}
     for nome in cfg['campos']:
@@ -294,6 +314,8 @@ def lista(request, slug):
     qs = model.objects.all()
     if cfg.get('prefetch'):
         qs = qs.prefetch_related(*cfg['prefetch'])
+    if cfg.get('select'):
+        qs = qs.select_related(*cfg['select'])
     if cfg.get('ordem'):
         qs = qs.order_by(*cfg['ordem'])
 
@@ -362,17 +384,21 @@ def editar(request, slug, pk=None):
     cfg = get_config(slug)
     Form = form_para(cfg)
     obj = get_object_or_404(cfg['model'], pk=pk) if pk else None
+    if slug == 'produtos' and obj is not None and hasattr(obj, 'kit'):
+        return redirect('producao:kit', pk=obj.kit.pk)  # kit se edita na tela de kits
 
     if request.method == 'POST':
-        form = Form(request.POST, instance=obj, rotulos=cfg.get('rotulos'))
+        form = Form(request.POST, request.FILES, instance=obj, rotulos=cfg.get('rotulos'))
         if form.is_valid():
             novo = form.save()
             _depois_de_salvar(novo)
             messages.success(request, f'{cfg["singular"].capitalize()} {cfg["salvo"]} com sucesso.')
+            if getattr(form, 'aviso_foto', None):
+                messages.warning(request, form.aviso_foto)
             if 'salvar_e_novo' in request.POST:
                 return redirect('painel:novo', slug=slug)
-            proximo = request.POST.get('proximo')
-            if proximo and proximo.startswith('/'):
+            proximo = destino_seguro(request.POST.get('proximo'))
+            if proximo:
                 return redirect(proximo)
             return redirect('painel:lista', slug=slug)
     else:
@@ -385,7 +411,7 @@ def editar(request, slug, pk=None):
         form = Form(instance=obj, initial=inicial, rotulos=cfg.get('rotulos'))
 
     ctx = {'cfg': cfg, 'menu': cfg['menu'], 'form': form, 'obj': obj,
-           'proximo': request.GET.get('proximo', '')}
+           'proximo': destino_seguro(request.GET.get('proximo', ''))}
     if cfg.get('fornecedores'):
         ctx['fornecedores'] = _fornecedores()
     if cfg.get('form_template') == 'painel/form_venda.html' or slug == 'precificacao':
@@ -413,12 +439,12 @@ def apagar(request, slug, pk):
         obj.delete()
         atualizar_totais_feira(feira)
         messages.success(request, f'{cfg["singular"].capitalize()} {cfg["apagado"]}.')
-        proximo = request.POST.get('proximo')
-        if proximo and proximo.startswith('/'):
+        proximo = destino_seguro(request.POST.get('proximo'))
+        if proximo:
             return redirect(proximo)
         return redirect('painel:lista', slug=slug)
 
     return render(request, 'painel/apagar.html', {
         'cfg': cfg, 'menu': cfg['menu'], 'obj': obj, 'relacionados': relacionados,
-        'bloqueado': bloqueado, 'proximo': request.GET.get('proximo', ''),
+        'bloqueado': bloqueado, 'proximo': destino_seguro(request.GET.get('proximo', '')),
     })

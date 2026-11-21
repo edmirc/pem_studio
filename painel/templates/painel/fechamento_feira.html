@@ -30,7 +30,7 @@
     <h3 class="titulo-cartao">Por produto</h3>
     <table class="tabela">
       <thead><tr><th>Produto</th><th class="num">Qtd.</th><th class="num">Total</th></tr></thead>
-      {% for p in produtos %}<tr><td>{{ p.produto }}</td><td class="num">{{ p.qnt }}</td><td class="num">{{ p.total|brl }}</td></tr>{% endfor %}
+      {% for p in produtos %}<tr><td>{{ p|com_foto }}</td><td class="num">{{ p.qnt }}</td><td class="num">{{ p.total|brl }}</td></tr>{% endfor %}
     </table>
   </div>
 </div>

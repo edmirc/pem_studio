@@ -26,8 +26,11 @@
       {% for item in produtos %}
         <button type="button" class="produto" data-id="{{ item.p.pk }}" data-nome="{{ item.p.product|lower }}"
                 data-cat="{{ item.p.category_id }}" data-preco="{% if item.preco %}{{ item.preco|stringformat:'s' }}{% endif %}">
+          {% if item.p.miniatura %}<img class="foto-pdv" src="{{ item.p.url_mini }}" alt="" loading="lazy">{% endif %}
           <span class="nome">{{ item.p.product }}</span>
           <span class="preco">{% if item.preco %}{{ item.preco|brl }}{% else %}sem preço{% endif %}</span>
+          {% if item.kit is not None %}<span class="estoque-pdv {% if not item.kit %}zerado{% endif %}">kit · dá para {{ item.kit }}</span>
+          {% elif item.estoque is not None %}<span class="estoque-pdv {% if item.estoque <= 0 %}zerado{% endif %}">{{ item.estoque }} em estoque</span>{% endif %}
         </button>
       {% endfor %}
     </div>

@@ -7,7 +7,7 @@
 <form method="post" class="cartao formulario" novalidate>{% csrf_token %}
   {% if obj.da_venda %}<div class="aviso warning">Este recebimento vem das vendas e é atualizado sozinho. Se você mudar algo aqui (por exemplo, desmarcar "já recebido" porque foi fiado), ele deixa de ser atualizado automaticamente.</div>
   {% elif obj.automatico %}<div class="aviso warning">Este lançamento vem de uma compra. Para mudar valor ou parcelas, edite a compra; aqui dá para ajustar vencimento, situação e observação.</div>{% endif %}
-  {{ form.tipo }}
+  {{ form.tipo }}<input type="hidden" name="voltar" value="{{ voltar }}">
   <div class="grade-campos">
     {% for campo in form %}{% if campo.name != 'tipo' and campo.name != 'ja_pago' %}{% include 'encomendas/parciais/campo.html' %}{% endif %}{% endfor %}
   </div>
@@ -15,9 +15,9 @@
   {% if not obj %}<p class="dica">Com mais de uma parcela, os vencimentos são mensais a partir da data informada (no cartão de crédito, nas faturas).</p>{% endif %}
   <div class="barra-botoes">
     {% if obj and not obj.automatico %}<button class="botao perigo" type="submit" form="form-apagar" onclick="return confirm('Apagar este lançamento?')">Apagar</button>{% endif %}
-    <a class="botao" href="{% url 'financas:contas' %}?tipo={{ tipo }}">Cancelar</a>
+    <a class="botao" href="{% if voltar %}{{ voltar }}{% else %}{% url 'financas:contas' %}?tipo={{ tipo }}{% endif %}">Cancelar</a>
     <button class="botao primario" type="submit">Salvar</button>
   </div>
 </form>
-{% if obj and not obj.automatico %}<form id="form-apagar" method="post" action="{% url 'financas:acao' 'apagar' %}">{% csrf_token %}<input type="hidden" name="id" value="{{ obj.pk }}"></form>{% endif %}
+{% if obj and not obj.automatico %}<form id="form-apagar" method="post" action="{% url 'financas:acao' 'apagar' %}">{% csrf_token %}<input type="hidden" name="id" value="{{ obj.pk }}"><input type="hidden" name="voltar" value="{{ voltar }}"></form>{% endif %}
 {% endblock %}

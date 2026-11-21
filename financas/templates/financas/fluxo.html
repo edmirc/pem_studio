@@ -7,6 +7,7 @@
   <div><p class="migalha">Financeiro</p><h1>Fluxo de caixa</h1></div>
   <div class="acoes">{% for d in opcoes_dias %}<a class="botao {% if d == dias %}primario{% endif %}" href="?dias={{ d }}">{{ d }} dias</a>{% endfor %}</div>
 </div>
+{% include 'financas/_abas_fluxo.html' %}
 
 <div class="duas-colunas largura-2-1">
   <div class="cartao">
@@ -25,7 +26,7 @@
         <tr><td>− contas pagas desde então</td><td class="num">{{ saidas_real|brl }}</td></tr>
       </table>
       {% if ultimas_entradas %}
-      <h4 class="sub-titulo">Últimas entradas</h4>
+      <h4 class="sub-titulo">Últimas entradas <a class="pequeno" href="{% url 'financas:extrato' %}">ver extrato</a></h4>
       <ul class="lista-simples">{% for l in ultimas_entradas %}<li><span>{{ l.descricao }}</span><small><b class="positivo">+ {{ l.valor|brl }}</b> · {{ l.pago_em|date:"d/m" }}</small></li>{% endfor %}</ul>
       {% endif %}
     {% else %}<p class="muted">Informe quanto vocês têm hoje (somando contas e dinheiro em caixa) para a previsão partir do valor certo.</p>{% endif %}

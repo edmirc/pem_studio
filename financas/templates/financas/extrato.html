@@ -1,0 +1,96 @@
+{% extends 'painel/base.html' %}
+{% load painel_tags %}
+{% block titulo %}Extrato{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <div><p class="migalha">Financeiro</p><h1>Fluxo de caixa</h1></div>
+  <div class="acoes nao-imprimir">
+    <a class="botao" href="?{{ params }}&formato=csv">Baixar planilha (CSV)</a>
+    <button class="botao" type="button" onclick="window.print()">Imprimir</button>
+  </div>
+</div>
+{% include 'financas/_abas_fluxo.html' %}
+
+<form method="get" class="filtros nao-imprimir" id="filtros-extrato">
+  <input type="hidden" name="periodo" value="{{ periodo }}">
+  <div class="chips-filtro" style="margin:0">
+    {% for k, n in periodos.items %}<button class="chip {% if k == periodo %}ativo{% endif %}" type="submit" name="periodo" value="{{ k }}">{{ n }}</button>{% endfor %}
+  </div>
+  <span class="datas-extrato" {% if periodo != 'datas' %}hidden{% endif %}>
+    <input class="campo" type="date" name="de" value="{{ de|date:'Y-m-d' }}"> a
+    <input class="campo" type="date" name="ate" value="{{ ate|date:'Y-m-d' }}" max="{{ hoje|date:'Y-m-d' }}">
+    <button class="botao pequeno" type="submit" name="periodo" value="datas">Ver</button>
+  </span>
+  <select class="campo" name="tipo" onchange="this.form.submit()">
+    <option value="">Entradas e saídas</option>
+    <option value="RECEBER" {% if tipo == 'RECEBER' %}selected{% endif %}>Só entradas</option>
+    <option value="PAGAR" {% if tipo == 'PAGAR' %}selected{% endif %}>Só saídas</option>
+  </select>
+  <input class="campo busca" type="search" name="q" value="{{ q }}" placeholder="Buscar descrição ou cliente…">
+</form>
+
+<div class="resumo-extrato">
+  <div><span>Saldo em {{ de|date:"d/m" }}</span><b>{% if saldo_ini is not None %}{{ saldo_ini|brl }}{% else %}—{% endif %}</b></div>
+  <div class="mais"><span>Entradas</span><b>+ {{ tot_entradas|brl }}</b></div>
+  <div class="menos"><span>Saídas</span><b>− {{ tot_saidas|brl }}</b></div>
+  <div class="final"><span>Saldo em {{ ate|date:"d/m" }}</span><b class="{% if saldo_fim is not None and saldo_fim < 0 %}negativo{% endif %}">{% if saldo_fim is not None %}{{ saldo_fim|brl }}{% else %}—{% endif %}</b></div>
+</div>
+{% if saldo_ini is None %}
+  <div class="aviso warning nao-imprimir">Para ver o saldo dia a dia, informe quanto havia nas contas e no caixa em algum dia (na aba Previsão, ou aqui embaixo).</div>
+{% endif %}
+{% if filtrando %}<p class="dica nao-imprimir">Filtro ativo: os totais e o saldo do dia consideram todos os movimentos; a lista mostra só o que bate com o filtro.</p>{% endif %}
+
+<div class="extrato">
+  {% for d in dias %}
+    <section class="ext-dia">
+      <header>
+        <h3>{{ d.data|date:"l, j \d\e F"|lower }}{% if d.data == hoje %} <span class="selo selo-sit-hoje">hoje</span>{% endif %}</h3>
+        {% if d.saldo is not None %}<span class="ext-saldo">saldo do dia <b class="{% if d.saldo < 0 %}negativo{% endif %}">{{ d.saldo|brl }}</b></span>{% endif %}
+      </header>
+      <ul>
+        {% for x in d.linhas %}
+          {% if x.fatura %}
+            <li class="ext-linha sai">
+              <span class="ext-icone" aria-hidden="true">↓</span>
+              <details class="ext-texto"><summary><b>Pagamento da fatura {{ x.conta }}</b> <small class="muted">{{ x.itens|length }} ite{{ x.itens|length|pluralize:"m,ns" }}</small></summary>
+                <ul class="itens-fatura">{% for l in x.itens %}<li><a href="{% url 'financas:editar' l.pk %}">{{ l.descricao }}{% if l.nome_parcela %} {{ l.nome_parcela }}{% endif %}</a><span class="num">{{ l.valor|brl }}</span></li>{% endfor %}</ul>
+              </details>
+              <span class="ext-valor">− {{ x.valor|brl }}</span>
+            </li>
+          {% else %}{% with l=x.l %}
+            <li class="ext-linha {% if l.tipo == 'RECEBER' %}entra{% else %}sai{% endif %}">
+              <span class="ext-icone" aria-hidden="true">{% if l.tipo == 'RECEBER' %}↑{% else %}↓{% endif %}</span>
+              <a class="ext-texto" href="{% url 'financas:editar' l.pk %}">
+                <b>{{ l.descricao }}{% if l.nome_parcela %} <small class="muted">{{ l.nome_parcela }}</small>{% endif %}</b>
+                <small class="muted">{% if l.forma %}{{ l.get_forma_display }}{% elif l.conta %}{{ l.conta }}{% else %}{{ l.get_categoria_display }}{% endif %}{% if l.cliente %} · {{ l.cliente }}{% endif %}{% if l.observacao %} · {{ l.observacao }}{% endif %}</small>
+              </a>
+              <span class="ext-valor">{% if l.tipo == 'RECEBER' %}+{% else %}−{% endif %} {{ l.valor|brl }}</span>
+            </li>
+          {% endwith %}{% endif %}
+        {% endfor %}
+      </ul>
+    </section>
+  {% empty %}
+    <div class="cartao vazio">Nenhum movimento neste período.</div>
+  {% endfor %}
+</div>
+
+<div class="cartao nao-imprimir">
+  <h3 class="titulo-cartao">Saldo de referência</h3>
+  {% if saldo %}<p>Último saldo informado: <b>{{ saldo.valor|brl }}</b> no começo de {{ saldo.data|date:"d/m/Y" }}. É a partir dele que o saldo de cada dia é calculado.</p>{% endif %}
+  <form method="post" action="{% url 'financas:fluxo' %}" class="form-compacto">{% csrf_token %}
+    <input type="hidden" name="voltar" value="{{ request.get_full_path }}">
+    <input class="campo" name="valor" placeholder="Saldo no começo do dia, ex.: 1520,50" inputmode="decimal" required>
+    <input class="campo" type="date" name="data" value="{{ hoje|date:'Y-m-d' }}" max="{{ hoje|date:'Y-m-d' }}">
+    <button class="botao" type="submit">Informar saldo</button>
+  </form>
+  <p class="dica">Some o que havia nas contas e em dinheiro no começo do dia escolhido (antes das vendas daquele dia). Se o extrato não bater com o banco, informe de novo.</p>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+document.querySelectorAll('#filtros-extrato .chip').forEach(b => b.addEventListener('click', e => {
+  if (b.value === 'datas') { e.preventDefault(); document.querySelector('.datas-extrato').hidden = false; }
+}));
+</script>
+{% endblock %}

@@ -27,6 +27,10 @@
       <a class="{% ativo 'vendas-feira' %}" href="{% url 'painel:lista' 'vendas-feira' %}">Vendas de feira</a>
       <a class="{% ativo 'vendas-internas' %}" href="{% url 'painel:lista' 'vendas-internas' %}">Vendas diretas</a>
 
+      <p class="grupo">Produção</p>
+      <a class="{% ativo 'producao' %}" href="{% url 'producao:painel' %}">Impressão</a>
+      <a class="{% ativo 'estoque' %}" href="{% url 'producao:estoque' %}">Estoque</a>
+
       <p class="grupo">Encomendas</p>
       <a class="{% ativo 'solicitacoes' %}" href="{% url 'encomendas:solicitacoes' %}">Solicitações</a>
       <a class="{% ativo 'orcamentos' %}" href="{% url 'encomendas:orcamentos' %}">Orçamentos</a>
@@ -36,7 +40,7 @@
       <p class="grupo">Financeiro</p>
       <a class="{% ativo 'financeiro' %}" href="{% url 'financas:contas' %}">Contas a pagar e receber</a>
       <a class="{% ativo 'faturas' %}" href="{% url 'financas:faturas' %}">Faturas dos cartões</a>
-      <a class="{% ativo 'fluxo' %}" href="{% url 'financas:fluxo' %}">Fluxo de caixa</a>
+      <a class="{% ativo 'fluxo' %}" href="{% url 'financas:extrato' %}">Fluxo de caixa</a>
       <a class="{% ativo 'fixas' %}" href="{% url 'painel:lista' 'despesas-fixas' %}">Despesas fixas</a>
 
       <p class="grupo">Compras</p>
@@ -51,6 +55,7 @@
       <p class="grupo">Cadastros</p>
       <a class="{% ativo 'clientes' %}" href="{% url 'painel:lista' 'clientes' %}">Clientes</a>
       <a class="{% ativo 'produtos' %}" href="{% url 'painel:lista' 'produtos' %}">Produtos</a>
+      <a class="{% ativo 'kits' %}" href="{% url 'producao:kits' %}">Kits</a>
       <a class="{% ativo 'precificacao' %}" href="{% url 'painel:lista' 'precificacao' %}">Precificação</a>
       <a class="{% ativo 'categorias' %}" href="{% url 'painel:lista' 'categorias' %}">Categorias</a>
       <a class="{% ativo 'filamentos' %}" href="{% url 'painel:lista' 'filamentos' %}">Filamentos</a>
@@ -76,6 +81,22 @@
     {% endif %}
     {% block conteudo %}{% endblock %}
   </main>
+  <script>
+    // botões "Copiar caminho" (funciona também sem HTTPS)
+    document.addEventListener('click', e => {
+      const b = e.target.closest('[data-copiar]');
+      if (!b) return;
+      const t = document.createElement('textarea');
+      t.value = b.dataset.copiar; t.setAttribute('readonly', ''); t.style.position = 'fixed'; t.style.opacity = '0';
+      document.body.appendChild(t); t.select();
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch (_) {}
+      t.remove();
+      if (!ok && navigator.clipboard) navigator.clipboard.writeText(b.dataset.copiar).then(() => {}, () => {});
+      const antes = b.textContent; b.textContent = 'Copiado!';
+      setTimeout(() => { b.textContent = antes; }, 1500);
+    });
+  </script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

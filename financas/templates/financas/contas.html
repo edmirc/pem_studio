@@ -17,16 +17,25 @@
 </div>
 {% endif %}
 
+{% if tipo == 'PAGAR' %}
 <div class="kpis">
   <a class="cartao kpi kpi-link {% if k_atrasado %}kpi-alerta{% endif %}" href="?tipo=PAGAR&periodo=atrasadas"><span>Contas atrasadas</span><strong>{{ k_atrasado|brl }}</strong><small>{{ k_atrasado_n }} conta{{ k_atrasado_n|pluralize }}</small></a>
   <a class="cartao kpi kpi-link" href="?tipo=PAGAR&periodo=7dias"><span>A pagar em 7 dias</span><strong>{{ k_7dias|brl }}</strong></a>
   <a class="cartao kpi kpi-link" href="?tipo=PAGAR&periodo=mes"><span>A pagar até o fim do mês</span><strong>{{ k_mes|brl }}</strong></a>
   <a class="cartao kpi kpi-link" href="?tipo=RECEBER&periodo=abertas"><span>A receber em 30 dias</span><strong class="positivo">{{ k_receber|brl }}</strong><small>encomendas e contas a receber</small></a>
 </div>
+{% else %}
+<div class="kpis">
+  <a class="cartao kpi kpi-link" href="?tipo=RECEBER&periodo=pagas"><span>Recebido no mês</span><strong class="positivo">{{ r_recebido_mes|brl }}</strong><small>vendas, sinais e recebimentos</small></a>
+  <a class="cartao kpi kpi-link" href="?tipo=RECEBER&periodo=abertas"><span>Ainda a receber</span><strong>{{ r_aberto|brl }}</strong><small>fiado e restante das encomendas</small></a>
+  <a class="cartao kpi kpi-link {% if r_atrasado %}kpi-alerta{% endif %}" href="?tipo=RECEBER&periodo=atrasadas"><span>Recebimentos atrasados</span><strong>{{ r_atrasado|brl }}</strong><small>{{ r_atrasado_n }} conta{{ r_atrasado_n|pluralize }}</small></a>
+  <a class="cartao kpi kpi-link" href="{% url 'financas:extrato' %}"><span>Extrato</span><strong class="menor">Ver entradas e saídas</strong><small>com o saldo de cada dia</small></a>
+</div>
+{% endif %}
 
 <div class="abas">
-  <a class="aba {% if tipo == 'PAGAR' %}ativa{% endif %}" href="?tipo=PAGAR&periodo={{ periodo }}">A pagar</a>
-  <a class="aba {% if tipo == 'RECEBER' %}ativa{% endif %}" href="?tipo=RECEBER&periodo={{ periodo }}">A receber</a>
+  <a class="aba {% if tipo == 'PAGAR' %}ativa{% endif %}" href="?tipo=PAGAR">A pagar</a>
+  <a class="aba {% if tipo == 'RECEBER' %}ativa{% endif %}" href="?tipo=RECEBER">A receber</a>
 </div>
 <div class="chips-filtro">
   {% for k, n in periodos.items %}<a class="chip {% if k == periodo %}ativo{% endif %}" href="?tipo={{ tipo }}&periodo={{ k }}">{% if k == 'pagas' and tipo == 'RECEBER' %}Recebidas no mês{% else %}{{ n }}{% endif %}</a>{% endfor %}
@@ -39,14 +48,14 @@
     {% for x in linhas %}
       {% if x.fatura %}
         <tr class="linha-fatura sit-{{ x.situacao }}">
-          <td>{{ x.vencimento|date:"d/m/Y" }}</td>
-          <td><details><summary><b>Fatura {{ x.conta }}</b> <span class="muted">({{ x.itens|length }} ite{{ x.itens|length|pluralize:"m,ns" }})</span></summary>
-            <ul class="itens-fatura">{% for l in x.itens %}<li><span>{{ l.descricao }} {% if l.nome_parcela %}<small class="muted">{{ l.nome_parcela }}</small>{% endif %}</span><span class="num">{{ l.valor|brl }}</span></li>{% endfor %}</ul>
+          <td class="c-venc">{{ x.vencimento|date:"d/m/Y" }}</td>
+          <td class="c-desc"><details><summary><b>Fatura {{ x.conta }}</b> <span class="muted">({{ x.itens|length }} ite{{ x.itens|length|pluralize:"m,ns" }})</span></summary>
+            <ul class="itens-fatura">{% for l in x.itens %}<li><a href="{% url 'financas:editar' l.pk %}">{{ l.descricao }} {% if l.nome_parcela %}<small class="muted">{{ l.nome_parcela }}</small>{% endif %}</a><span class="num">{{ l.valor|brl }}</span></li>{% endfor %}</ul>
           </details></td>
-          <td>{{ x.conta }}</td>
-          <td class="num"><b>{{ x.valor|brl }}</b></td>
-          <td><span class="selo selo-sit-{{ x.situacao }}">{% if x.situacao == 'pago' %}Paga{% elif x.situacao == 'atrasado' %}Atrasada{% elif x.situacao == 'hoje' %}Vence hoje{% else %}Em aberto{% endif %}</span></td>
-          <td class="acoes-linha">{% if not x.pago %}
+          <td class="c-conta">{{ x.conta }}</td>
+          <td class="num c-valor"><b>{{ x.valor|brl }}</b></td>
+          <td class="c-sit"><span class="selo selo-sit-{{ x.situacao }}">{% if x.situacao == 'pago' %}Paga{% elif x.situacao == 'atrasado' %}Atrasada{% elif x.situacao == 'hoje' %}Vence hoje{% else %}Em aberto{% endif %}</span></td>
+          <td class="acoes-linha c-acoes">{% if not x.pago %}
             <form method="post" action="{% url 'financas:acao' 'pagar' %}" class="pagar-form">{% csrf_token %}
               {% for l in x.itens %}{% if not l.pago_em %}<input type="hidden" name="id" value="{{ l.pk }}">{% endif %}{% endfor %}
               <input type="hidden" name="voltar" value="{{ request.get_full_path }}">
@@ -55,13 +64,13 @@
         </tr>
       {% else %}{% with l=x.l %}
         <tr class="sit-{{ l.situacao }}">
-          <td>{{ l.vencimento|date:"d/m/Y" }}</td>
-          <td>{{ l.descricao }} {% if l.nome_parcela %}<small class="muted">{{ l.nome_parcela }}</small>{% endif %}
+          <td class="c-venc">{{ l.vencimento|date:"d/m/Y" }}</td>
+          <td class="c-desc"><a class="link-editar" href="{% url 'financas:editar' l.pk %}">{{ l.descricao }}</a> {% if l.nome_parcela %}<small class="muted">{{ l.nome_parcela }}</small>{% endif %}
             <small class="muted d-bloco">{{ l.get_categoria_display }}{% if l.cliente %} · {{ l.cliente }}{% endif %}{% if l.recorrente %} · despesa fixa{% endif %}{% if l.da_venda %} · automático{% elif l.automatico %} · da compra{% endif %}{% if l.observacao %} · {{ l.observacao }}{% endif %}</small></td>
-          <td>{{ l.conta|default:"—" }}</td>
-          <td class="num"><b class="{% if tipo == 'RECEBER' %}positivo{% endif %}">{{ l.valor|brl }}</b></td>
-          <td><span class="selo selo-sit-{{ l.situacao }}">{% if l.situacao == 'pago' %}{% if tipo == 'PAGAR' %}Pago{% else %}Recebido{% endif %} {{ l.pago_em|date:"d/m" }}{% elif l.situacao == 'atrasado' %}Atrasado{% elif l.situacao == 'hoje' %}Vence hoje{% else %}Em aberto{% endif %}</span></td>
-          <td class="acoes-linha">
+          <td class="c-conta">{% if l.forma %}{{ l.get_forma_display }}{% else %}{{ l.conta|default:"—" }}{% endif %}</td>
+          <td class="num c-valor"><b class="{% if tipo == 'RECEBER' %}positivo{% endif %}">{{ l.valor|brl }}</b></td>
+          <td class="c-sit"><span class="selo selo-sit-{{ l.situacao }}">{% if l.situacao == 'pago' %}{% if tipo == 'PAGAR' %}Pago{% else %}Recebido{% endif %} {{ l.pago_em|date:"d/m" }}{% elif l.situacao == 'atrasado' %}Atrasado{% elif l.situacao == 'hoje' %}Vence hoje{% else %}Em aberto{% endif %}</span></td>
+          <td class="acoes-linha c-acoes">
             {% if not l.pago_em %}
               <form method="post" action="{% url 'financas:acao' 'pagar' %}" class="pagar-form">{% csrf_token %}
                 <input type="hidden" name="id" value="{{ l.pk }}"><input type="hidden" name="voltar" value="{{ request.get_full_path }}">
@@ -79,12 +88,12 @@
     {% endfor %}
     {% for p in pedidos %}
       <tr class="sit-{{ p.situacao }}">
-        <td>{{ p.vencimento|date:"d/m/Y" }}</td>
-        <td>{{ p.descricao }}<small class="muted d-bloco">{{ p.cliente }} · entrega prevista</small></td>
-        <td>—</td>
-        <td class="num"><b class="positivo">{{ p.valor|brl }}</b></td>
-        <td><span class="selo selo-sit-{{ p.situacao }}">{% if p.situacao == 'atrasado' %}Entrega atrasada{% else %}Na entrega{% endif %}</span></td>
-        <td class="acoes-linha"><a class="pequeno" href="{% url 'encomendas:pedido' p.pedido.pk %}">ver pedido</a></td>
+        <td class="c-venc">{{ p.vencimento|date:"d/m/Y" }}</td>
+        <td class="c-desc"><a class="link-editar" href="{% url 'encomendas:pedido' p.pedido.pk %}">{{ p.descricao }}</a><small class="muted d-bloco">{{ p.cliente }} · recebe na entrega</small></td>
+        <td class="c-conta">—</td>
+        <td class="num c-valor"><b class="positivo">{{ p.valor|brl }}</b></td>
+        <td class="c-sit"><span class="selo selo-sit-{{ p.situacao }}">{% if p.situacao == 'atrasado' %}Entrega atrasada{% else %}Na entrega{% endif %}</span></td>
+        <td class="acoes-linha c-acoes"><a class="botao pequeno" href="{% url 'encomendas:pedido' p.pedido.pk %}#entregar">Receber na entrega</a></td>
       </tr>
     {% endfor %}
     {% if not linhas and not pedidos %}

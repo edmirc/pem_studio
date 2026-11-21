@@ -1,0 +1,8 @@
+<details class="falhou">
+  <summary class="botao perigo">Falhou</summary>
+  <form method="post" action="{% url 'producao:acao' i.pk 'falhou' %}" class="falhou-form">{% csrf_token %}
+    <input class="campo" name="motivo" placeholder="O que aconteceu? (opcional)" maxlength="150">
+    <label class="caixa-marcar"><input type="checkbox" name="reimprimir" value="1" checked> Pôr de novo na fila</label>
+    <button class="botao perigo" type="submit">Registrar falha</button>
+  </form>
+</details>

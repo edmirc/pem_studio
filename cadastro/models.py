@@ -17,9 +17,27 @@ class Product(models.Model):
     id = models.BigAutoField(primary_key=True, verbose_name='ID', unique=True)
     product = models.CharField(max_length=200, verbose_name='Produto', unique=True)
     category = models.ForeignKey(Category, on_delete=models.CASCADE, verbose_name='Categoria')
+    imagem = models.FileField('Foto', upload_to='produtos/', blank=True, max_length=255)
+    miniatura = models.FileField(upload_to='produtos/', blank=True, max_length=255, editable=False)
+    arquivo = models.CharField('Arquivo 3D (caminho)', max_length=500, blank=True,
+                               help_text='Caminho do arquivo na rede, ex.: \\\\192.168.3.190\\hd4t\\3D\\vaso.3mf')
 
     def __str__(self):
         return self.product
+
+    def _url_foto(self, nome, campo):
+        if not campo:
+            return ''
+        from django.urls import reverse
+        return reverse(nome, args=[self.pk]) + '?v=' + campo.name.rsplit('/', 1)[-1][:40]
+
+    @property
+    def url_foto(self):
+        return self._url_foto('painel:produto_foto', self.imagem)
+
+    @property
+    def url_mini(self):
+        return self._url_foto('painel:produto_mini', self.miniatura or self.imagem)
 
     class Meta:
         verbose_name="Produtos"
@@ -108,6 +126,7 @@ class OperacaoFinaceira(models.TextChoices):
     DEBITO = 'DEBITO', 'Débito'
     PIX = 'PIX', 'PIX'
     SAQUE = 'SAQUE', 'Saque'
+    DINHEIRO = 'DINHEIRO', 'Dinheiro'
 
 
 class Contas(models.Model):

@@ -21,7 +21,7 @@
   <table class="tabela">
     <thead><tr><th>Data</th><th>Produto</th><th class="num">Qtd.</th><th class="num">Valor</th><th>Pagamento</th><th></th></tr></thead>
     {% for v in compras %}
-      <tr><td>{{ v.date|date:"d/m/Y" }}</td><td>{{ v.product }}</td><td class="num">{{ v.qnt|default:1 }}</td>
+      <tr><td>{{ v.date|date:"d/m/Y" }}</td><td>{{ v.product|com_foto }}</td><td class="num">{{ v.qnt|default:1 }}</td>
         <td class="num">{{ v.valor|brl }}</td><td>{{ v.get_pagment_display }}</td>
         <td class="acoes-linha"><a href="{% url 'painel:editar' 'vendas-internas' v.pk %}?proximo={{ request.path|urlencode }}">Editar</a></td></tr>
     {% empty %}<tr><td colspan="6" class="vazio">Nenhuma compra registrada.</td></tr>{% endfor %}

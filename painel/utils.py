@@ -52,3 +52,13 @@ def mes_seguinte(ano, mes):
 
 def nome_mes(ano, mes):
     return f'{MESES[mes - 1]} de {ano}'
+
+
+def destino_seguro(url):
+    """Só aceita endereços internos do sistema (evita redirecionar para outro site)."""
+    from django.utils.http import url_has_allowed_host_and_scheme
+    url = (url or '').strip()
+    if url.startswith('/') and not url.startswith('//') and '\\' not in url \
+            and url_has_allowed_host_and_scheme(url, allowed_hosts=None):
+        return url
+    return ''

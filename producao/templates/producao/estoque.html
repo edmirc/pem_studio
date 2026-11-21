@@ -1,0 +1,57 @@
+{% extends 'painel/base.html' %}
+{% load painel_tags %}
+{% block titulo %}Estoque{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <div><p class="migalha">Produção</p><h1>Estoque</h1>
+    <p class="sub">Entra quando a impressão fica pronta, sai quando a venda é lançada. Vendas desde {{ inicio|date:"d/m/Y" }}.</p></div>
+  <div class="acoes">
+    <a class="botao" href="{% url 'producao:contagem' %}">Fazer contagem</a>
+    <a class="botao primario" href="{% url 'producao:nova' %}">+ Nova impressão</a>
+  </div>
+</div>
+
+<div class="kpis">
+  <div class="cartao kpi"><span>Peças em estoque</span><strong>{{ k.pecas }}</strong><small class="muted">{{ k.producao }} em produção</small></div>
+  <div class="cartao kpi"><span>Valor de venda</span><strong>{{ k.venda|brl }}</strong><small class="muted">custo {{ k.custo|brl }}</small></div>
+  <a class="cartao kpi kpi-link {% if k.abaixo %}kpi-alerta{% endif %}" href="?filtro=abaixo"><span>Abaixo do mínimo</span><strong>{{ k.abaixo }}</strong><small class="muted">produto{{ k.abaixo|pluralize }}</small></a>
+  <a class="cartao kpi kpi-link {% if k.negativos %}kpi-alerta{% endif %}" href="?filtro=abaixo"><span>Estoque negativo</span><strong class="{% if k.negativos %}negativo{% endif %}">{{ k.negativos }}</strong><small class="muted">vendeu mais do que entrou</small></a>
+</div>
+
+<form method="get" class="filtros">
+  <input class="campo busca" type="search" name="q" value="{{ q }}" placeholder="Buscar produto…">
+  <select class="campo" name="categoria" onchange="this.form.submit()">
+    <option value="">Categoria: todas</option>
+    {% for c in categorias %}<option value="{{ c.pk }}" {% if c.pk == cat %}selected{% endif %}>{{ c.category }}</option>{% endfor %}
+  </select>
+  <select class="campo" name="filtro" onchange="this.form.submit()">
+    <option value="" {% if not filtro %}selected{% endif %}>Todos os produtos</option>
+    <option value="com" {% if filtro == 'com' %}selected{% endif %}>Só com estoque</option>
+    <option value="abaixo" {% if filtro == 'abaixo' %}selected{% endif %}>Precisa imprimir</option>
+    <option value="zerado" {% if filtro == 'zerado' %}selected{% endif %}>Zerados</option>
+  </select>
+  <button class="botao" type="submit">Filtrar</button>
+</form>
+
+<div class="cartao tabela-rolavel">
+  <table class="tabela tabela-estoque">
+    <thead><tr><th>Produto</th><th class="num">Em estoque</th><th class="num" title="Separado para pedidos ainda não entregues">Reservado</th>
+      <th class="num">Disponível</th><th class="num">Mínimo</th><th class="num">Produzindo</th><th class="num">Preço</th><th></th></tr></thead>
+    <tbody>
+    {% for l in linhas %}
+      <tr class="est-{{ l.situacao }}">
+        <td><a class="nome-foto" href="{% url 'producao:produto' l.p.pk %}">{% if l.p.miniatura %}<img src="{{ l.p.url_mini }}" alt="" loading="lazy">{% else %}<span class="sem-foto" aria-hidden="true"></span>{% endif %}<span>{{ l.p.product }}<small class="muted bloco">{{ l.p.category }}</small></span></a></td>
+        <td class="num"><b class="{% if l.saldo < 0 %}negativo{% endif %}">{{ l.saldo }}</b></td>
+        <td class="num">{% if l.reservado %}{{ l.reservado }}{% else %}<span class="muted">—</span>{% endif %}</td>
+        <td class="num">{{ l.disponivel }}{% if l.situacao == 'abaixo' %} <span class="selo selo-abaixo">baixo</span>{% endif %}</td>
+        <td class="num">{% if l.minimo %}{{ l.minimo }}{% else %}<span class="muted">—</span>{% endif %}</td>
+        <td class="num">{% if l.producao %}{{ l.producao }}{% else %}<span class="muted">—</span>{% endif %}</td>
+        <td class="num">{% if l.venda %}{{ l.venda|brl }}{% else %}<span class="muted">sem preço</span>{% endif %}</td>
+        <td class="acoes-linha"><a href="{% url 'producao:nova' %}?produto={{ l.p.pk }}{% if l.sugestao %}&qnt={{ l.sugestao }}{% endif %}">Imprimir{% if l.sugestao %} {{ l.sugestao }}{% endif %}</a>
+          <a href="{% url 'producao:produto' l.p.pk %}">Ajustar</a></td>
+      </tr>
+    {% empty %}<tr><td colspan="8" class="vazio">Nenhum produto encontrado.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

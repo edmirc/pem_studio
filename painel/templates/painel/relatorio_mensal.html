@@ -75,7 +75,7 @@
     <table class="tabela">
       <thead><tr><th>Produto</th><th class="num">Qtd.</th><th class="num">Faturado</th><th class="num">Custo</th><th class="num">Lucro bruto</th></tr></thead>
       {% for p in produtos %}
-        <tr><td>{{ p.produto }}</td><td class="num">{{ p.qnt }}</td><td class="num">{{ p.total|brl }}</td>
+        <tr><td>{{ p|com_foto }}</td><td class="num">{{ p.qnt }}</td><td class="num">{{ p.total|brl }}</td>
           <td class="num muted">{{ p.custo|brl }}</td><td class="num">{{ p.lucro|brl }}</td></tr>
       {% empty %}<tr><td colspan="5" class="vazio">Sem vendas.</td></tr>{% endfor %}
     </table>
@@ -95,7 +95,7 @@
   <table class="tabela">
     <thead><tr><th>Data</th><th>Cliente</th><th>Produto</th><th class="num">Qtd.</th><th class="num">Valor</th><th>Pagamento</th></tr></thead>
     {% for v in internas %}
-      <tr><td>{{ v.date|date:"d/m" }}</td><td>{{ v.client }}</td><td>{{ v.product }}</td><td class="num">{{ v.qnt|default:1 }}</td><td class="num">{{ v.valor|brl }}</td><td>{{ v.get_pagment_display }}</td></tr>
+      <tr><td>{{ v.date|date:"d/m" }}</td><td>{{ v.client }}</td><td>{{ v.product|com_foto }}</td><td class="num">{{ v.qnt|default:1 }}</td><td class="num">{{ v.valor|brl }}</td><td>{{ v.get_pagment_display }}</td></tr>
     {% empty %}<tr><td colspan="6" class="vazio">Nenhuma venda direta neste mês.</td></tr>{% endfor %}
   </table>
 </div>
